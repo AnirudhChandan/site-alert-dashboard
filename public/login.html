@@ -1,0 +1,96 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in — Demo Estate Security</title>
+<style>
+  :root{--bg0:#070a10;--bg1:#0c1017;--panel:#111722;--line2:#ffffff1f;--tx:#eef2f7;--tx2:#b8c2d0;--dim:#7d8898;
+        --critical:#ff5c5c;--high:#ffb020;--accent:#7c9cff;
+        --font:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;color:var(--tx);font:15px/1.5 var(--font);
+       background:radial-gradient(1200px 600px at 15% -10%,#17233a 0%,transparent 60%),
+                  radial-gradient(900px 500px at 100% 0%,#1a1630 0%,transparent 55%),
+                  linear-gradient(180deg,var(--bg1),var(--bg0) 60%)}
+  main{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line2);border-radius:18px;padding:30px 28px;
+       box-shadow:0 30px 80px -30px #000}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+  .brand svg{width:38px;height:38px;flex:none}
+  h1{font-size:18px;margin:0;line-height:1.2}
+  .brand small{display:block;font-size:11.5px;color:var(--dim);letter-spacing:.6px;text-transform:uppercase}
+  label{display:block;font-size:13px;color:var(--tx2);margin:14px 0 6px}
+  input{width:100%;font:inherit;font-size:16px;color:var(--tx);background:#0b0f16;border:1px solid var(--line2);border-radius:10px;padding:11px 12px}
+  input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  button{font:inherit;cursor:pointer}
+  .go{width:100%;margin-top:22px;padding:12px;border:0;border-radius:10px;background:var(--accent);color:#0b0f16;font-weight:700;font-size:16px}
+  .go:disabled{opacity:.6;cursor:wait}
+  #msg{min-height:22px;margin:14px 0 0;font-size:14px;color:var(--critical)}
+  #msg.warn{color:var(--high)}
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;font-size:13px;color:var(--dim)}
+  .lang{background:none;border:1px solid var(--line2);border-radius:99px;color:var(--tx2);padding:4px 12px}
+  #here{display:none;margin:0 0 6px;padding:12px 14px;border-radius:10px;background:#7c9cff14;border:1px solid #7c9cff40;font-size:14px}
+  #here a{color:var(--accent);font-weight:600}
+</style>
+<main>
+  <div class="brand">
+    <svg viewBox="0 0 40 40" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8fb0ff"/><stop offset="1" stop-color="#5b7cf0"/></linearGradient></defs>
+      <path d="M20 3 6 8v10c0 9 6 15.5 14 19 8-3.5 14-10 14-19V8L20 3z" fill="url(#g)" opacity=".18" stroke="url(#g)" stroke-width="1.8"/>
+      <path d="M13.5 20.5 18 25l9-10" stroke="#cfe0ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><h1>Demo Estate</h1><small data-t="sub"></small></div>
+  </div>
+  <p id="here"></p>
+  <form id="f">
+    <label for="u" data-t="user"></label>
+    <input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+    <label for="p" data-t="pass"></label>
+    <input id="p" name="password" type="password" autocomplete="current-password" required>
+    <p id="msg" role="alert"></p>
+    <button class="go" data-t="signIn"></button>
+  </form>
+  <div class="foot"><span data-t="help"></span><button class="lang" id="lang" type="button"></button></div>
+</main>
+<script>
+const I18N = {
+  en: { sub: 'Security dashboard', user: 'Username', pass: 'Password', signIn: 'Sign in', wrong: 'Wrong username or password.',
+        locked: 'Too many wrong tries. Please wait {n} minutes and try again.', offline: 'Cannot reach the dashboard. Check the network and try again.',
+        help: 'No account? Ask the site manager.', here: 'You are already signed in as {name}.', open: 'Open the dashboard' },
+  hi: { sub: 'सुरक्षा डैशबोर्ड', user: 'यूज़रनेम', pass: 'पासवर्ड', signIn: 'साइन इन करें', wrong: 'यूज़रनेम या पासवर्ड गलत है।',
+        locked: 'बहुत बार गलत पासवर्ड डाला गया। {n} मिनट रुककर फिर कोशिश करें।', offline: 'डैशबोर्ड से संपर्क नहीं हो पा रहा। नेटवर्क देखकर फिर कोशिश करें।',
+        help: 'खाता नहीं है? साइट मैनेजर से पूछें।', here: 'आप पहले से {name} के रूप में साइन इन हैं।', open: 'डैशबोर्ड खोलें' },
+}
+let lang = 'en'; try { lang = localStorage.lang === 'hi' ? 'hi' : 'en' } catch {}
+const t = (k, n = {}) => I18N[lang][k].replace(/\{(\w+)\}/g, (_, x) => n[x])
+const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+document.documentElement.lang = lang
+document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t) })
+const langBtn = document.getElementById('lang')
+langBtn.textContent = lang === 'en' ? 'हिंदी' : 'English'
+langBtn.onclick = () => { try { localStorage.lang = lang === 'en' ? 'hi' : 'en' } catch {} location.reload() }
+
+// Same rule as the server's safeNext: only a page on this dashboard, never another website.
+const raw = new URLSearchParams(location.search).get('next') ?? ''
+const next = raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/\\') && !raw.startsWith('/login') ? raw : '/'
+
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(me => {
+  if (!me) return
+  const here = document.getElementById('here')
+  here.innerHTML = `${esc(t('here', { name: me.name }))} <a href="${esc(next)}">${esc(t('open'))} →</a>`
+  here.style.display = 'block'
+}).catch(() => {})
+
+const f = document.getElementById('f'), msg = document.getElementById('msg')
+f.onsubmit = async e => {
+  e.preventDefault()
+  const btn = f.querySelector('.go'); btn.disabled = true; msg.textContent = ''; msg.className = ''
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-mes': '1' },
+      body: JSON.stringify({ username: f.username.value, password: f.password.value }),
+    })
+    if (r.ok) return location.replace(next)
+    const body = await r.json().catch(() => ({}))
+    if (r.status === 429) { msg.className = 'warn'; msg.textContent = t('locked', { n: body.locked ?? 15 }) }
+    else { msg.textContent = t('wrong'); f.password.value = ''; f.password.focus() }
+  } catch { msg.textContent = t('offline') }
+  btn.disabled = false
+}
+</script>

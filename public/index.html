@@ -1,0 +1,1702 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo Estate — Security Alerts</title>
+<style>
+  :root{
+    --bg0:#070a10; --bg1:#0c1017; --panel:#111722cc; --panel-solid:#111722; --raise:#171f2c;
+    --line:#ffffff12; --line2:#ffffff1f; --tx:#eef2f7; --tx2:#b8c2d0; --dim:#7d8898; --faint:#4b5566;
+    --critical:#ff5c5c; --high:#ffb020; --medium:#4da3ff; --info:#66738a; --ok:#3ddc84; --accent:#7c9cff;
+    --r:14px; --r-sm:9px; --shadow:0 10px 30px -12px #000c, 0 1px 0 #ffffff08 inset;
+    --font:"Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scrollbar-color:#2a3342 transparent}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#2a3342;border-radius:99px;border:2px solid var(--bg0)}
+  body{margin:0;color:var(--tx);font:15px/1.5 var(--font);font-variant-numeric:tabular-nums;
+       background:radial-gradient(1200px 600px at 15% -10%,#17233a 0%,transparent 60%),
+                  radial-gradient(900px 500px at 100% 0%,#1a1630 0%,transparent 55%),
+                  linear-gradient(180deg,var(--bg1),var(--bg0) 60%);min-height:100vh;background-attachment:fixed}
+  button{font-family:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* ---- header ---- */
+  header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+         padding:12px 24px;background:#0b0f16d9;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+         border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand svg{width:34px;height:34px;flex:none}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.2px;line-height:1.15}
+  .brand small{display:block;font-size:11.5px;color:var(--dim);letter-spacing:.6px;text-transform:uppercase;margin-top:2px}
+  .pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);
+        background:#ffffff06;font-size:13px;color:var(--tx2);white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 #3ddc8466;animation:pulse 2s infinite}
+  .dot.off{background:var(--critical);animation:none}
+  @keyframes pulse{70%{box-shadow:0 0 0 7px #3ddc8400}100%{box-shadow:0 0 0 0 #3ddc8400}}
+  .clock{font-size:13px;color:var(--dim);letter-spacing:.3px}
+  #snd{cursor:pointer;color:var(--tx2)}
+  #snd:hover{border-color:#ffffff33;color:var(--tx)}
+  #snd.blocked{border-color:var(--high);color:var(--high);background:#ffb02012}
+  #sndMenu{width:270px}
+  #sndMenu button{display:block;width:100%;text-align:left;padding:9px 12px 9px 34px;border:0;border-radius:8px;background:none;
+                  color:var(--tx);font:inherit;font-weight:600;font-size:14px;cursor:pointer;position:relative}
+  #sndMenu button:hover,#sndMenu button:focus-visible{background:#ffffff10}
+  #sndMenu button[aria-checked=true]::before{content:'✓';position:absolute;left:12px;color:var(--ok)}
+  #sndMenu small{display:block;color:var(--dim);font-size:12.5px;font-weight:400}
+  #sndMenu hr{border:0;border-top:1px solid var(--line);margin:4px 6px}
+  .count{margin-left:auto;cursor:pointer;font:inherit;display:inline-flex;align-items:center;gap:10px;padding:6px 14px 6px 8px;border-radius:999px;
+         border:1px solid var(--line2);background:#ffffff06;font-size:13px;color:var(--tx2)}
+  .count b{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 8px;border-radius:999px;
+           font-size:15px;color:#fff;background:linear-gradient(135deg,#ff5c5c,#d63a3a);box-shadow:0 0 18px #ff5c5c55}
+  .count.zero b{background:linear-gradient(135deg,#3ddc84,#1fa860);box-shadow:0 0 14px #3ddc8444}
+
+  /* ---- navigation: one tab bar, one page at a time ---- */
+  .tabs{position:sticky;top:var(--hdr,62px);z-index:9;display:flex;gap:4px;padding:0 24px;
+        background:#0b0f16e6;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .tab{display:inline-flex;align-items:center;gap:9px;padding:14px 18px 13px;border:0;border-bottom:3px solid transparent;
+       background:none;color:var(--dim);font-size:15px;font-weight:600;cursor:pointer;transition:color .15s,border-color .15s}
+  .tab svg{width:19px;height:19px;flex:none;opacity:.85}
+  .tab:hover{color:var(--tx)}
+  .tab[aria-selected=true]{color:var(--tx);border-bottom-color:var(--accent)}
+  .tab[aria-selected=true] svg{opacity:1;color:var(--accent)}
+  .chip{padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#ffffff05;color:var(--tx2);
+        font-size:13px;cursor:pointer;transition:all .15s;white-space:nowrap}
+  .chip:hover{border-color:var(--line2);background:#ffffff0a;color:var(--tx)}
+  .chip[aria-pressed=true]{background:linear-gradient(135deg,#7c9cff,#5b7cf0);color:#fff;border-color:transparent;
+        font-weight:600;box-shadow:0 4px 14px -4px #5b7cf0aa}
+  .chip small{opacity:.75;margin-left:5px;font-weight:500}
+
+  /* every page is built the same way: a heading that says what the page is for, then content */
+  .page{padding:18px 24px 70px}
+  .page[hidden]{display:none!important}
+  .pagehead{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .pagehead h2{margin:0;font-size:24px;letter-spacing:-.2px}
+  .pagehead p{margin:3px 0 0;color:var(--dim);font-size:14px;max-width:720px}
+  .pageactions{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .hint{font-size:12.5px;color:var(--faint)}
+  .btn{padding:8px 14px;border-radius:9px;border:1px solid var(--line2);background:#ffffff08;color:var(--tx);
+       font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .btn:hover{background:#ffffff12;border-color:#ffffff33}
+  .btn.ico{display:inline-flex;align-items:center;gap:7px}
+  .btn.ico svg{width:16px;height:16px;flex:none}
+  .dlbtn{background:#7c9cff1f;border-color:#7c9cff66;color:#dbe4ff}
+  .dlbtn:hover,.dl[open] .dlbtn{background:#7c9cff33;border-color:var(--accent)}
+  .dlbtn.busy{cursor:progress;opacity:.75}
+  .flabel{font-size:13px;color:var(--dim);margin-left:4px}
+  .daterange{display:inline-flex;align-items:center;gap:6px;color:var(--dim)}
+  .daterange[hidden]{display:none}
+  .trend{margin-top:12px}
+  #trendChart .col{cursor:pointer}
+  .printonly{display:none}
+  .dl{position:relative}
+  .dl summary{list-style:none;display:inline-flex;align-items:center;gap:7px}
+  .dl summary::-webkit-details-marker{display:none}
+  .dl summary::after{content:'';width:6px;height:6px;border:solid var(--dim);border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg)}
+  .dlmenu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:250px;max-width:calc(100vw - 32px);padding:6px;
+          background:var(--panel-solid);border:1px solid var(--line2);border-radius:12px;box-shadow:var(--shadow)}
+  .dlmenu a{display:block;padding:9px 12px;border-radius:8px;color:var(--tx);text-decoration:none;font-weight:600;font-size:14px;cursor:pointer}
+  .dlmenu a:hover,.dlmenu a:focus-visible{background:#ffffff10}
+  .dlmenu small{display:block;color:var(--dim);font-size:12.5px;font-weight:400}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:#ffffff05}
+  .seg button{padding:8px 14px;border:0;background:none;color:var(--tx2);font-size:13.5px;font-weight:600;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+  .subhead{display:flex;align-items:baseline;gap:10px;margin:26px 2px 12px}
+  .subhead h3{margin:0;font-size:17px}
+  .subhead span{color:var(--dim);font-size:13.5px}
+
+  /* ---- sections ---- */
+  section.panel,.prow,#live .tile,.card{background:var(--panel);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+        border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .sechead{display:flex;align-items:baseline;gap:12px;padding:0 4px 10px}
+  .sechead h2{margin:0;font-size:14px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .sechead span{font-size:12.5px;color:var(--faint)}
+
+  /* ---- status banner (TV) ---- */
+  #status{display:none;margin:14px 24px 0;padding:26px 30px;border-radius:18px;text-align:center;
+          font-size:46px;font-weight:800;letter-spacing:.5px;color:#7af0ab;
+          background:linear-gradient(135deg,#0f2a1b,#0b1f16);border:1px solid #3ddc8440;box-shadow:0 0 60px -20px #3ddc8466 inset}
+  #status.alarm{color:#ff8c8c;background:linear-gradient(135deg,#3a1114,#26090b);border-color:#ff5c5c66;
+          animation:throb 1.4s infinite}
+  @keyframes throb{50%{box-shadow:0 0 0 12px #ff5c5c14,0 0 80px -10px #ff5c5c55 inset}}
+  #status small{display:block;font-size:15px;font-weight:500;opacity:.75;margin-top:6px;letter-spacing:.4px}
+
+  /* ---- live view: one big picture + a strip of small ones ---- */
+  .stage{position:relative;width:100%;aspect-ratio:16/9;max-height:56vh;background:#0a0e14;border:1px solid var(--line);
+         border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+  .stage video,.stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0a0e14}
+  .stage [hidden]{display:none!important}
+  .stage.nopic::after{content:attr(data-msg);position:absolute;inset:0;display:flex;align-items:center;
+                      justify-content:center;color:var(--faint);font-size:15px;letter-spacing:.4px}
+  .stage.alarm{border-color:var(--critical);box-shadow:0 0 0 3px #ff5c5c55,0 0 60px -10px #ff5c5c88}
+  .stagebar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:12px;padding:14px 18px;
+            background:linear-gradient(180deg,#0000,#070a10ee);pointer-events:none}
+  .stagebar b{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .stagebar .sub{font-size:13px;color:var(--tx2)}
+  .stagebar button{pointer-events:auto;margin-left:auto;background:#0b0f16cc;border:1px solid var(--line2);color:var(--tx);
+                   border-radius:8px;padding:7px 12px;font-size:16px;cursor:pointer;line-height:1}
+  .stagebar button:hover{background:#1b2432}
+  .afbadge{position:absolute;top:14px;left:16px;background:var(--critical);color:#fff;font-size:12px;font-weight:700;
+           letter-spacing:.6px;text-transform:uppercase;padding:5px 11px;border-radius:7px;box-shadow:0 0 20px #ff5c5c88}
+  .camstrip{display:grid;gap:8px;grid-template-columns:repeat(8,minmax(0,1fr));margin-top:10px}
+  @media (max-width:1100px){ .camstrip{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  .camstrip .tile .tag{font-size:11px;left:7px;bottom:5px;white-space:nowrap;overflow:hidden;
+                    text-overflow:ellipsis;max-width:calc(100% - 14px)}
+  #live.grid .stage{display:none}
+  #live.grid .camstrip{grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:12px}
+  #live.grid .tile{border-radius:var(--r)}
+  .stage:fullscreen{max-height:none;height:100vh;border:0;border-radius:0}
+
+  /* ---- live thumbnails ---- */
+  .tile{position:relative;padding-top:56.25%;overflow:hidden;background:#0a0e14;cursor:pointer;
+        border-radius:var(--r-sm);border:2px solid transparent;transition:border-color .15s}
+  .tile:hover{border-color:var(--line2)}
+  .tile.focused{border-color:var(--accent);box-shadow:0 0 16px -4px var(--accent)}
+  .tile img,.tile video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#0a0e14}
+  .tile [hidden]{display:none!important}
+  .tile::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#0000 55%,#070a10d9);pointer-events:none}
+  .tile .tag{position:absolute;left:8px;bottom:6px;z-index:1;font-size:11.5px;font-weight:600;letter-spacing:.2px}
+  #live.grid .tile .tag{font-size:14px;left:10px;bottom:9px}
+  #live:not(.grid) .camstrip .rec{display:none}
+  .tile .rec{position:absolute;right:10px;top:10px;z-index:1;display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;
+             letter-spacing:1px;color:#fff;background:#0b0f16aa;padding:3px 7px 3px 6px;border-radius:6px}
+  .tile .rec::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--critical);box-shadow:0 0 8px var(--critical);animation:pulse 1.5s infinite}
+  .tile.stills .rec{background:#0b0f16aa;color:var(--dim)}
+  .tile.stills .rec::before{background:var(--dim);box-shadow:none;animation:none}
+  .tile.off img,.tile.off video,.tile.off .rec{display:none}
+  .tile.off::before{content:'offline';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:13px;letter-spacing:.5px}
+
+  /* ---- patrol ---- */
+  .pinner{max-width:1100px}
+  .pday{font-size:14px;color:var(--tx2);min-width:150px;text-align:center;font-weight:600}
+  .prow{padding:16px 18px;margin-bottom:12px}
+  .prow .hd{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .prow .hd b{font-size:16px}
+  .prow .hd span{font-size:13px;color:var(--dim)}
+  .prow .kpi{margin-left:auto;display:flex;gap:16px}
+  .gauge{--p:0;--gc:var(--ok);position:relative;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;
+         background:conic-gradient(var(--gc) calc(var(--p)*1%),#ffffff12 0);
+         -webkit-mask:radial-gradient(circle,transparent 21px,#000 22px);mask:radial-gradient(circle,transparent 21px,#000 22px)}
+  .gwrap{position:relative;width:58px;height:58px;display:grid;place-items:center}
+  .gwrap b{position:absolute;font-size:13px;font-weight:700}
+  .gwrap span{position:absolute;bottom:-16px;font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  .kpi{padding-bottom:16px}
+  .strip{position:relative;height:38px;margin:12px 0 4px;background:#0a0e14;border-radius:var(--r-sm);border:1px solid var(--line);overflow:hidden}
+  .strip .g{position:absolute;top:0;bottom:0;background:linear-gradient(180deg,#ff5c5c55,#ff5c5c22);border-left:1px solid var(--critical);border-right:1px solid var(--critical)}
+  .strip .v{position:absolute;top:8px;bottom:8px;width:2px;background:var(--ok);box-shadow:0 0 6px var(--ok)}
+  .strip .future{position:absolute;top:0;bottom:0;right:0;background:repeating-linear-gradient(135deg,#ffffff08 0 4px,transparent 4px 9px)}
+  .strip .night{position:absolute;top:0;bottom:0;background:#ffffff05}
+  .hours{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);padding:0 1px}
+  .gaps{font-size:13px;color:var(--dim);margin-top:8px}
+  .gaps b{color:var(--critical)}
+  .pempty{color:var(--dim);font-size:14px;padding:26px;text-align:center}
+
+  /* ---- alerts page: filters ---- */
+  .filterbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .filterbar input,.filterbar select{font:inherit;font-size:14px;color:var(--tx);background:#ffffff08;border:1px solid var(--line2);
+        border-radius:10px;padding:8px 12px;outline:none;color-scheme:dark}
+  .filterbar input[type=search]{min-width:280px;flex:1;max-width:420px}
+  .filterbar input:focus,.filterbar select:focus{border-color:var(--accent)}
+  .typechips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .resultline{display:flex;align-items:center;gap:12px;color:var(--dim);font-size:13.5px;margin:4px 2px 12px}
+  .resultline button{background:none;border:0;color:var(--accent);cursor:pointer;font-size:13.5px;padding:0}
+  .morewrap{text-align:center;margin-top:18px}
+
+  /* ---- analytics ---- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:18px 20px}
+  .panel h4{margin:0;font-size:15.5px}
+  .panel .x{margin:3px 0 14px;color:var(--dim);font-size:13px;line-height:1.45}
+  .insights{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+  .ih{margin:0 0 10px!important;font-size:12.5px!important;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)}
+  .insights li{position:relative;padding-left:22px;font-size:15.5px;line-height:1.5;color:var(--tx)}
+  .insights li::before{content:'';position:absolute;left:3px;top:.62em;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .insights h4{margin:0 0 4px;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)}
+  .kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-top:14px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px}
+  .kpi .l{font-size:12.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .kpi .n{font-size:36px;font-weight:800;letter-spacing:-.6px;line-height:1.1;margin-top:4px}
+  .kpi .n small{font-size:15px;color:var(--dim);font-weight:500;margin-left:5px;letter-spacing:0}
+  .kpi .d{font-size:13px;margin-top:3px;color:var(--tx2)}
+  .kpi .d.good{color:var(--ok)} .kpi .d.bad{color:var(--high)}
+  .kpi .e{font-size:13px;color:var(--dim);margin-top:8px;line-height:1.45}
+  .typegrid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+  .tcard{--sev:var(--info);position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+         box-shadow:var(--shadow);padding:16px 18px 14px 20px;cursor:pointer;overflow:hidden;transition:transform .15s,border-color .15s}
+  .tcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sev)}
+  .tcard:hover{transform:translateY(-2px);border-color:var(--line2)}
+  .tcard.none{opacity:.55;cursor:default}.tcard.none:hover{transform:none}
+  .tc-top{display:flex;align-items:baseline;gap:8px}
+  .tc-top h4{margin:0;font-size:16px;flex:1}
+  .tc-top span{font-size:12.5px;color:var(--dim)}
+  .tc-num{font-size:32px;font-weight:800;letter-spacing:-.5px;margin:4px 0 2px;line-height:1.1}
+  .tc-num small{display:block;font-size:12.5px;font-weight:500;color:var(--dim);letter-spacing:0;margin-top:2px}
+  .tc-line{margin:10px 0 0;font-size:13px;color:var(--tx2);line-height:1.45}
+  .stack{display:flex;gap:2px;height:10px;margin-top:12px;border-radius:5px;overflow:hidden;background:#ffffff08}
+  .stack i{display:block;min-width:3px}
+  .s-real{background:var(--critical)} .s-open{background:var(--high)} .s-false{background:var(--ok)}
+  .stackkey{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;font-size:12.5px;color:var(--tx2)}
+  .stackkey b{font-weight:700;color:var(--tx)}
+  .k-real{color:var(--critical)} .k-open{color:var(--high)} .k-false{color:var(--ok)}
+  .two{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));margin-top:12px;align-items:start}
+
+  /* column chart: HTML bars so text stays crisp at any size; one hue, rounded top, 2px gaps */
+  .cchart{--h:130px}
+  .cchart .plot{position:relative;display:grid;grid-template-columns:repeat(var(--n),1fr);gap:2px;align-items:end;
+                height:var(--h);border-bottom:1px solid var(--line2)}
+  .cchart .col{position:relative;height:100%;display:flex;align-items:flex-end;cursor:default}
+  .cchart .col.night{background:#ffffff05}
+  .cchart .col i{display:block;width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+  .cchart .col.zero i{display:none}
+  .cchart .col:hover i{background:#a6bbff}
+  .cchart .gl{position:absolute;left:0;right:0;border-top:1px dashed var(--line);pointer-events:none}
+  .cchart .gl span{position:absolute;right:0;top:-17px;font-size:11px;color:var(--faint)}
+  .cchart .xl{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:2px;margin-top:5px}
+  .cchart .xl span{font-size:11px;color:var(--faint);text-align:center;white-space:nowrap;overflow:visible}
+  .cchart.mini{--h:44px;margin-top:10px}
+  .cchart.mini .plot{border-bottom-color:var(--line)}
+
+  /* horizontal bars */
+  .hbars{display:grid;gap:9px}
+  .hb{display:grid;grid-template-columns:minmax(120px,190px) 1fr 44px;align-items:center;gap:12px;font-size:14px}
+  .hb.click{cursor:pointer}
+  .hb-l{color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hb-l small{display:block;color:var(--faint);font-size:11.5px}
+  .hb-t{height:14px;background:#ffffff08;border-radius:0 4px 4px 0;overflow:hidden}
+  .hb-t i{display:block;height:100%;background:var(--accent);border-radius:0 4px 4px 0;min-width:2px}
+  .hb-t i.warn{background:var(--high)}
+  .hb:hover .hb-t i{filter:brightness(1.18)}
+  .hb-v{text-align:right;font-weight:700}
+  .gtable{width:100%;border-collapse:collapse;font-size:14px}
+  .gtable th{text-align:left;font-size:12px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);font-weight:600;
+             padding:0 8px 8px;border-bottom:1px solid var(--line2)}
+  .gtable td{padding:9px 8px;border-bottom:1px solid var(--line)}
+  .gtable td.num,.gtable th.num{text-align:right}
+  .heat{margin-top:12px;overflow-x:auto}
+  .heat table{border-collapse:separate;border-spacing:2px;min-width:720px}
+  .heat th{font-size:11px;color:var(--faint);font-weight:500;text-align:center;padding:0 0 4px}
+  .heat th.cam{text-align:left;padding-right:10px;color:var(--tx2);font-weight:600;white-space:nowrap}
+  .heat td{width:26px;height:24px;border-radius:4px;background:#ffffff08;font-size:10.5px;text-align:center;color:transparent;cursor:pointer}
+  .heat td:hover{outline:2px solid var(--tx)}
+  .heat.nums td{color:var(--tx)}
+  .heat .scale{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--faint);margin-top:8px}
+  .heat .scale i{display:inline-block;width:18px;height:10px;border-radius:2px}
+  .heat label{font-size:13px;color:var(--dim);cursor:pointer}
+  .nodata{color:var(--dim);font-size:14px;padding:18px 0}
+
+  /* one tooltip for every chart */
+  .tip{position:fixed;z-index:70;pointer-events:none;background:#0b0f16f2;border:1px solid var(--line2);border-radius:8px;
+       padding:7px 10px;font-size:13px;color:var(--tx);box-shadow:0 10px 30px -8px #000;max-width:280px;display:none}
+
+  .card .tools{display:flex;gap:10px;margin-top:6px;font-size:12.5px}
+  .card .tools a,.card .tools button{color:var(--dim);background:none;border:0;padding:0;cursor:pointer;font-size:12.5px;text-decoration:none}
+  .card .tools a:hover,.card .tools button:hover{color:var(--accent)}
+  .card .note{font-size:13px;color:var(--tx2);margin-top:4px;padding-left:10px;border-left:2px solid var(--line2);white-space:pre-wrap}
+  body.tv .tools{display:none}
+
+  /* ---- one-tap reasons, right after marking an alert ---- */
+  .reasons{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+  .reasons .why{width:100%;font-size:13px;font-weight:600;color:var(--tx2)}
+  .reasons button{padding:8px 12px;border-radius:999px;border:1px solid var(--line2);background:#ffffff0a;color:var(--tx);
+                  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .reasons button:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+  .reasons button.skip{background:none;border-color:transparent;color:var(--dim);font-weight:500}
+  body.tv .reasons{display:none}
+
+  /* ---- the AI Box has gone quiet ---- */
+  #boxwarn{display:flex;align-items:center;gap:18px;margin:14px 24px 0;padding:18px 22px;border-radius:16px;
+           background:#3a2a0c;border:2px solid var(--high);color:#ffe2a8}
+  #boxwarn[hidden]{display:none}
+  #boxwarn.bad{background:#3a1216;border-color:var(--critical);color:#ffd0d0;animation:warnpulse 2s infinite}
+  @keyframes warnpulse{50%{box-shadow:0 0 0 6px #ff5c5c33}}
+  #boxwarn svg{width:40px;height:40px;flex:none}
+  #boxwarn .bw-text{flex:1;min-width:0}
+  #boxwarn b{display:block;font-size:21px;line-height:1.25;color:#fff}
+  #boxwarn span{display:block;font-size:15px;margin-top:3px}
+  #boxwarn button{flex:none;padding:10px 16px;border-radius:10px;border:1px solid currentColor;background:none;color:inherit;
+                  font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  body.tv #boxwarn{margin:14px 30px 0}body.tv #boxwarn b{font-size:28px}body.tv #boxwarn span{font-size:19px}
+
+  /* ---- simple mode: the guard-room screen. Cameras and "needs checking" only, bigger targets ---- */
+  #modeBtn{cursor:pointer;color:var(--dim);font-size:12.5px}
+  body.simple .tabs,body.simple #ver,body.simple #page-live .pagehead p,body.simple .card .tools a{display:none}
+  body.simple .feed{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:14px}
+  body.simple .card{padding:18px;gap:16px}
+  body.simple .rule{font-size:21px}body.simple .cam{font-size:15.5px}body.simple .meta{font-size:14px}
+  body.simple .shot{width:140px;height:104px}
+  body.simple .acts{gap:10px;margin-top:12px}
+  body.simple button.act{flex:1;min-height:60px;font-size:18px;padding:14px 16px}
+  body.simple .reasons{gap:8px}
+  body.simple .reasons .why{font-size:16px}
+  body.simple .reasons button{font-size:16.5px;padding:13px 18px;min-height:52px}
+  body.simple .card .tools button{font-size:15px;padding:6px 0}
+  body.simple .ok{font-size:15.5px}
+  body.simple header .pill,body.simple .count{font-size:15px;padding:9px 15px}
+  body.simple #layoutBtn{font-size:15px;padding:11px 18px}
+  body.simple #undo{font-size:18px;padding:18px 20px 18px 26px}body.simple #undo button{font-size:17px;padding:13px 24px}
+
+  /* ---- who is on duty, and the undo bar ---- */
+  #whoBtn{cursor:pointer}
+  #whoBtn b{color:var(--tx);font-weight:600}
+  .modal{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:#070a10e6;
+         backdrop-filter:blur(6px)}
+  .modal.on{display:flex}
+  .modal .box{background:var(--panel-solid);border:1px solid var(--line2);border-radius:18px;padding:30px 34px;
+              box-shadow:0 30px 80px -20px #000;max-width:min(680px,92vw);text-align:center}
+  .modal h3{margin:0 0 6px;font-size:24px}
+  .modal p{margin:0 0 22px;color:var(--dim);font-size:14px}
+  .names{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  .names button{padding:18px 28px;font-size:19px;font-weight:600;font-family:inherit;color:var(--tx);cursor:pointer;
+                background:#1b2432;border:1px solid var(--line2);border-radius:12px;min-width:150px;transition:all .15s}
+  .names button:hover{background:var(--accent);border-color:var(--accent);color:#fff;transform:translateY(-2px)}
+  #undo{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120%);z-index:55;display:flex;
+        align-items:center;gap:16px;padding:14px 18px 14px 22px;border-radius:14px;background:var(--panel-solid);
+        border:1px solid var(--line2);box-shadow:0 20px 50px -12px #000;transition:transform .25s;font-size:15px}
+  #undo.on{transform:translateX(-50%) translateY(0)}
+  #undo button{padding:9px 18px;border-radius:9px;border:0;background:var(--accent);color:#fff;font:inherit;
+               font-weight:600;cursor:pointer}
+
+  /* ---- alert feed ---- */
+  .feed{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(380px,1fr))}
+  .card{--sev:var(--info);position:relative;display:flex;gap:14px;padding:14px;overflow:hidden;transition:transform .2s,box-shadow .2s}
+  .card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sev);box-shadow:0 0 16px var(--sev)}
+  .card:hover{transform:translateY(-2px);box-shadow:0 16px 36px -14px #000e,0 1px 0 #ffffff0a inset}
+  .card.acked{opacity:.55;filter:saturate(.6)}
+  .card.acked:has(.reasons){opacity:1;filter:none}   /* still asking why: keep it easy to read */
+  .card.new{animation:flash 1s ease-out}
+  @keyframes flash{from{background:#243350}}
+  .card.urgent{transform:scale(1.02);box-shadow:0 0 0 2px var(--sev),0 0 30px #ff5c5c55}
+  .shot{width:118px;height:86px;object-fit:cover;border-radius:var(--r-sm);background:#0a0e14;flex:none;border:1px solid var(--line)}
+  .ph{display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--faint);border:1px dashed var(--line2)}
+  .body{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+  .top{display:flex;align-items:center;gap:8px}
+  .badge{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:3px 8px;border-radius:6px;
+         color:var(--sev);background:color-mix(in srgb,var(--sev) 14%,transparent);border:1px solid color-mix(in srgb,var(--sev) 35%,transparent)}
+  .meta{font-size:12.5px;color:var(--dim);margin-left:auto}
+  .rule{font-size:17px;font-weight:700;letter-spacing:-.1px}
+  .cam{font-size:13.5px;color:var(--tx2)}
+  .cam::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dim);margin:0 8px 2px 0}
+  .acts{margin-top:8px;display:flex;gap:8px}
+  button.act{padding:6px 12px;border-radius:8px;border:1px solid var(--line2);background:#ffffff08;color:var(--tx);font-size:13px;cursor:pointer;transition:all .15s}
+  button.act:hover{background:#ffffff12;border-color:#ffffff33}
+  button.act{padding:10px 16px;font-size:14.5px;font-weight:600}
+  button.act[data-o=action_taken]{background:linear-gradient(135deg,#3ddc84,#22b56a);color:#062b17;border-color:transparent}
+  button.act[data-o=false_alarm]{background:#2a2027;border-color:#ff5c5c44;color:#ffb3b3}
+  button.act:hover{filter:brightness(1.1)}
+  body.tv button.act{font-size:19px;padding:14px 22px}
+  .ok{color:var(--ok);font-size:13px;margin-top:6px}
+  .empty{grid-column:1/-1;text-align:center;color:var(--dim);padding:80px 0;font-size:15px}
+  .empty::before{content:'';display:block;width:56px;height:56px;margin:0 auto 14px;border-radius:50%;border:2px solid var(--ok);
+                 background:radial-gradient(circle,#3ddc8422,transparent 70%);box-shadow:0 0 30px #3ddc8433}
+
+  /* ---- TV / kiosk mode ---- */
+  body.tv{cursor:none;overflow:hidden}
+  body.tv .tabs,body.tv .acts,body.tv .count,body.tv .pagehead,body.tv .subhead span{display:none}
+  body.tv header{padding:14px 30px}
+  body.tv .brand h1{font-size:24px}body.tv .brand small{font-size:13px}body.tv .brand svg{width:42px;height:42px}
+  body.tv .clock{font-size:18px;color:var(--tx2)}
+  body.tv #status{display:block}
+  body.tv .page{padding-left:30px;padding-right:30px}
+  body.tv .feed{grid-template-columns:repeat(3,1fr)}
+  body.tv .card{padding:18px;gap:18px}
+  body.tv .rule{font-size:28px}body.tv .cam{font-size:19px}body.tv .meta{font-size:15px}body.tv .badge{font-size:12px}
+  body.tv .shot{width:160px;height:116px}
+  #tap{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:#070a10ee;
+       font-size:40px;font-weight:700;text-align:center;cursor:pointer;backdrop-filter:blur(10px)}
+  #tap small{display:block;font-size:17px;color:var(--dim);font-weight:400;margin-top:10px}
+  body.tv.needtap #tap{display:flex}
+
+  @media print{
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{background:#fff!important;color:#111}
+    header,#status,#boxwarn,.tabs,.pageactions,.filterbar,.typechips,.morewrap,#undo,#tap,.modal,.tip,.acts,.tools,.reasons{display:none!important}
+    .page{padding:0}
+    .printonly{display:block;color:#444;margin:0 0 12px}
+    .panel,.kpi,.tcard,.prow,.card,.insights{background:#fff!important;border-color:#ccc!important;box-shadow:none!important;
+         backdrop-filter:none!important;break-inside:avoid}
+    .pagehead p,.panel .x,.kpi .l,.kpi .e,.tc-top span,.tc-num small,.hb-l,.hint,.subhead span,.gaps,.hours{color:#444!important}
+    .insights li,.kpi .n,.tc-num,.tc-line,.hb-v,.gtable td,.pagehead h2,.subhead h3,.panel h4{color:#111!important}
+    .cchart .col.night{background:#f2f2f2}.cchart .gl span,.cchart .xl span{color:#666}
+    .strip{background:#f3f3f3;border-color:#ccc}.strip .v{box-shadow:none}
+    .gauge{background:conic-gradient(#2a2 calc(var(--p)*1%),#ddd 0)}.gwrap b{color:#000}.gwrap span{color:#444}
+  }
+</style>
+
+<header id="hdr">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8fb0ff"/><stop offset="1" stop-color="#5b7cf0"/></linearGradient></defs>
+      <path d="M20 3 6 8v10c0 9 6 15.5 14 19 8-3.5 14-10 14-19V8L20 3z" fill="url(#g)" opacity=".18" stroke="url(#g)" stroke-width="1.8"/>
+      <path d="M13.5 20.5 18 25l9-10" stroke="#cfe0ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><h1>Demo Estate</h1><small>Security operations <span id="ver"></span></small></div>
+  </div>
+  <span class="pill"><span class="dot" id="dot"></span><span id="conn"></span></span>
+  <span class="clock" id="clock"></span>
+  <button id="lang" class="pill" title="Language">हिंदी</button>
+  <button id="whoBtn" class="pill" title="Who is on duty"></button>
+  <button id="modeBtn" class="pill" hidden></button>
+  <details class="dl sndmenu"><summary id="snd" class="pill"></summary><div class="dlmenu" id="sndMenu"></div></details>
+  <button class="count" id="countwrap"><b id="unacked">0</b> <span data-t="needAttention"></span></button>
+</header>
+<div id="status">ALL CLEAR<small></small></div>
+<!-- The AI Box has gone quiet or stopped answering. Shown on every page and every screen. -->
+<div id="boxwarn" role="alert" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+  <div class="bw-text"><b id="bwTitle"></b><span id="bwSub"></span></div>
+  <button id="bwMute"></button>
+</div>
+
+<!-- One tab bar. Exactly one page is visible at a time; the address bar remembers which. -->
+<nav class="tabs" id="tabs" role="tablist">
+  <button class="tab" role="tab" data-tab="live">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg>
+    <span data-t="tabLive"></span></button>
+  <button class="tab" role="tab" data-tab="alerts">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+    <span data-t="tabAlerts"></span></button>
+  <button class="tab" role="tab" data-tab="patrol">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+    <span data-t="tabPatrol"></span></button>
+  <button class="tab" role="tab" data-tab="analytics">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-5M12 16V7M17 16v-8"/></svg>
+    <span data-t="tabAnalytics"></span></button>
+</nav>
+
+<!-- LIVE ---------------------------------------------------------------- -->
+<section class="page" id="page-live" hidden>
+  <div class="pagehead">
+    <div><h2 data-t="tabLive"></h2><p data-t="pgLiveSub"></p></div>
+    <div class="pageactions"><span class="hint" id="livemode"></span><button class="btn" id="layoutBtn"></button></div>
+  </div>
+  <div id="live">
+    <div class="stage" id="stage">
+      <video id="bigv" muted playsinline autoplay></video>
+      <img id="bigi" alt="" hidden>
+      <div class="afbadge" id="afBadge" hidden data-t="alertHere"></div>
+      <div class="stagebar"><div><b id="bigname"></b><div class="sub" id="bigsub"></div></div>
+        <button id="fsBtn" title="Fullscreen">⛶</button></div>
+    </div>
+    <div class="camstrip" id="strip"></div>
+  </div>
+  <p class="nodata" id="noLive" hidden data-t="noLive"></p>
+  <div class="subhead"><h3 data-t="needsChecking"></h3><span id="attnCount"></span></div>
+  <div class="feed" id="attnFeed"></div>
+</section>
+
+<!-- ALERTS -------------------------------------------------------------- -->
+<section class="page" id="page-alerts" hidden>
+  <div class="pagehead">
+    <div><h2 data-t="tabAlerts"></h2><p data-t="pgAlertsSub"></p></div>
+    <div class="pageactions"><button class="btn ico" data-print="alerts" data-title="printTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span data-t="print"></span></button><details class="dl" data-what="alerts"><summary class="btn ico dlbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span data-t="download"></span></summary><div class="dlmenu"></div></details></div>
+  </div>
+  <div class="filterbar">
+    <input type="search" id="fq">
+    <select id="fcam"></select>
+    <div class="seg" id="frange">
+      <button data-v="1" data-t="today"></button><button data-v="7" data-t="d7"></button>
+      <button data-v="30" data-t="d30"></button><button data-v="all" data-t="allTime"></button>
+    </div>
+    <div class="seg" id="fstatus">
+      <button data-v="all" data-t="stAll"></button><button data-v="open" data-t="stOpen"></button>
+      <button data-v="real" data-t="stReal"></button><button data-v="false" data-t="stFalse"></button>
+    </div>
+  </div>
+  <div class="typechips" id="typechips"></div>
+  <div class="resultline"><span id="resultText"></span><button id="clearBtn" hidden data-t="clearFilters"></button></div>
+  <div class="feed" id="listFeed"></div>
+  <div class="morewrap"><button class="btn" id="moreBtn" hidden data-t="showMore"></button></div>
+</section>
+
+<!-- PATROL -------------------------------------------------------------- -->
+<section class="page" id="page-patrol" hidden>
+  <div class="pagehead">
+    <div><h2 data-t="tabPatrol"></h2><p data-t="pgPatrolSub"></p></div>
+    <div class="pageactions">
+      <button class="btn" id="pprev">‹</button><span class="pday" id="pday"></span><button class="btn" id="pnext">›</button>
+      <button class="btn ico" data-print="patrol" data-title="printTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span data-t="print"></span></button><details class="dl" data-what="patrol"><summary class="btn ico dlbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span data-t="download"></span></summary><div class="dlmenu"></div></details>
+    </div>
+  </div>
+  <div class="pinner" id="prows"></div>
+</section>
+
+<!-- ANALYTICS ----------------------------------------------------------- -->
+<section class="page" id="page-analytics" hidden>
+  <div class="pagehead">
+    <div><h2 data-t="tabAnalytics"></h2><p data-t="pgAnalyticsSub"></p></div>
+    <div class="pageactions">
+      <button class="btn ico" data-print="analytics" data-title="printTip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span data-t="print"></span></button><details class="dl" data-what="analytics"><summary class="btn ico dlbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span data-t="download"></span></summary><div class="dlmenu"></div></details>
+    </div>
+  </div>
+  <div class="filterbar">
+    <label class="flabel" for="period" data-t="periodL"></label>
+    <select id="period">
+      <option value="hour" data-t="perHour"></option><option value="today" data-t="perToday"></option>
+      <option value="yesterday" data-t="perYesterday"></option><option value="week" data-t="perWeek"></option>
+      <option value="7d" data-t="per7"></option><option value="month" data-t="perMonth"></option>
+      <option value="30d" data-t="per30"></option><option value="90d" data-t="per90"></option>
+      <option value="custom" data-t="perCustom"></option>
+    </select>
+    <span id="customRange" class="daterange" hidden><input type="date" id="pfrom"><span>–</span><input type="date" id="pto"></span>
+    <span class="flabel" data-t="showBy"></span>
+    <div class="seg" id="groupSeg"><button data-v="hour" data-t="gHour"></button><button data-v="day" data-t="gDay"></button><button data-v="week" data-t="gWeek"></button><button data-v="month" data-t="gMonth"></button></div>
+  </div>
+  <p class="printonly" id="anPrintLine"></p>
+
+  <div class="panel insights-wrap">
+    <h4 class="ih" data-t="inPlainWords"></h4>
+    <ul class="insights" id="insights"></ul>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="panel trend"><h4 data-t="overTime"></h4><p class="x" id="trendX"></p><div id="trendChart"></div></div>
+
+  <div class="subhead"><h3 data-t="byType"></h3><span data-t="byTypeX"></span></div>
+  <div class="typegrid" id="typecards"></div>
+
+  <div class="two">
+    <div class="panel"><h4 data-t="rFineTitle"></h4><p class="x" id="rFineX"></p><div id="rFine"></div></div>
+    <div class="panel"><h4 data-t="rDoneTitle"></h4><p class="x" id="rDoneX"></p><div id="rDone"></div></div>
+  </div>
+  <div class="two">
+    <div class="panel"><h4 data-t="whenTitle"></h4><p class="x" data-t="whenX"></p><div id="whenChart"></div></div>
+    <div class="panel"><h4 data-t="whereTitle"></h4><p class="x" data-t="whereX"></p><div id="whereChart"></div></div>
+  </div>
+  <div class="two">
+    <div class="panel"><h4 data-t="respTitle"></h4><p class="x" data-t="respX"></p><div id="respChart"></div></div>
+    <div class="panel"><h4 data-t="guardTitle"></h4><p class="x" data-t="guardX"></p><div id="guardTable"></div></div>
+  </div>
+  <div class="panel heat" id="heat">
+    <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:280px"><h4 data-t="heatTitle"></h4><p class="x" data-t="heatX"></p></div>
+      <label><input type="checkbox" id="heatnums"> <span data-t="showNumbers"></span></label>
+    </div>
+    <table id="heatTable"></table>
+    <div class="scale"><span data-t="fewer"></span> <i style="background:#4da3ff1a"></i><i style="background:#4da3ff55"></i><i style="background:#4da3ff99"></i><i style="background:#4da3ff"></i> <span data-t="more"></span></div>
+  </div>
+</section>
+
+<div class="modal" id="who"><div class="box">
+  <h3 data-t="whoTitle"></h3><p data-t="whoSub"></p>
+  <div class="names" id="names"></div>
+</div></div>
+<div id="undo"><span id="undoText"></span><button id="undoBtn" data-t="undo"></button></div>
+<div id="tap"><span data-t="tapStart"></span><small data-t="tapSub"></small></div>
+<div class="tip" id="tip"></div>
+
+<script src="/vendor/hls.min.js"></script>
+<script type="module">
+// Signed out (or the account was switched off)? Go to the sign-in page and come back here after.
+const toLogin = () => location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search + location.hash))
+const halt = () => new Promise(() => {})   // nothing after a redirect should run
+async function getJSON(url) {
+  const r = await fetch(url)
+  if (r.status === 401) { toLogin(); await halt() }
+  return r.json()
+}
+async function send(url, body = {}) {
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-mes': '1' }, body: JSON.stringify(body) })
+  if (r.status === 401) { toLogin(); await halt() }
+  return r.json()
+}
+const meta = await getJSON('/api/meta')
+const Q = new URLSearchParams(location.search)
+const TV = Q.get('mode') === 'tv'
+// guard: can mark alerts and add notes.  viewer (head office): sees everything, changes nothing.
+// kiosk: the guard-room PC itself, no account — the guard on duty picks their name instead.
+const ME = meta.me, canAct = ME.role === 'guard', KIOSK = !!ME.kiosk
+
+// Simple mode: the guard-room screen shows only the cameras and what needs checking, with bigger
+// buttons. On by default on the guard-room PC itself; ?mode=simple or ?mode=full sets it for any
+// screen. "Manager view" opens everything until this window is closed.
+if (Q.get('mode') === 'simple' || Q.get('mode') === 'full') try { localStorage.simple = Q.get('mode') === 'simple' ? '1' : '0' } catch {}
+const store = (k, area = localStorage) => { try { return area[k] } catch { return undefined } }
+const SIMPLE_HOME = !TV && (store('simple') === '1' || (store('simple') !== '0' && KIOSK))
+const SIMPLE = SIMPLE_HOME && store('fullView', sessionStorage) !== '1'
+if (SIMPLE) document.body.classList.add('simple')
+
+// One-tap reasons (the list and its labels come from the server, rules.ts).
+const REASON = Object.fromEntries((meta.reasons ?? []).map(r => [r.code, r]))
+const reasonText = code => REASON[code] ? (lang === 'hi' ? REASON[code].hi : REASON[code].en) : ''
+const reasonsFor = a => (meta.reasons ?? []).filter(r => r.outcome === a.outcome && (!r.only || r.only.includes(a.rule)))
+const TV_CARDS = 6
+if (TV) document.body.classList.add('tv')
+
+const $ = id => document.getElementById(id)
+const esc = v => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const hhmm = ts => new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+const RANK = { critical: 3, high: 2, medium: 1 }
+
+// ---- language -------------------------------------------------------------
+// Every word on screen, in both languages. Switching reloads the page: one lookup,
+// no re-render plumbing.
+const I18N = {
+  en: {
+    tabLive: 'Live', tabAlerts: 'Alerts', tabPatrol: 'Patrol', tabAnalytics: 'Analytics',
+    pgLiveSub: 'What the cameras see right now, and anything that still needs checking.',
+    pgAlertsSub: 'Every alert the system has recorded. Search, filter, and export.',
+    pgPatrolSub: 'Whether guards reached every checkpoint in time, across the whole day.',
+    pgAnalyticsSub: 'What happened, explained in plain words and simple charts.',
+    needsChecking: 'Needs checking', attnNone: 'Nothing needs checking right now.', noLive: 'Live cameras are not connected.',
+    showAll: 'Show all cameras', showOne: 'Show one big', alertHere: 'Alert here',
+    offline: 'offline', liveVideo: 'live video', stillsAll: 'still pictures, 1 per second',
+    camsOffline: 'cameras not reachable', someOff: '· {n} offline',
+    connecting: 'connecting…', liveOk: 'live', reconnecting: 'reconnecting…',
+    needAttention: 'need checking', allClear: 'ALL CLEAR',
+    alertsNeed: '{n} ALERT NEEDS CHECKING', alertsNeedP: '{n} ALERTS NEED CHECKING',
+    soundOn: '🔊 Sound on', soundOff: '🔇 Sound off', soundClick: '🔊 Click to enable sound',
+    soundChime: '🔔 Chime only', soundOffUntil: '🔇 Sound off until {time}',
+    sndAll: 'Sound and voice', sndAllX: 'A chime, and each alert read out loud', sndChime: 'Chime only', sndChimeX: 'A chime, no voice',
+    snd30: 'Off for 30 minutes', snd60: 'Off for 1 hour', sndBackX: 'Comes back on by itself at {time}',
+    sndOff: 'Off', sndOffX: 'Silent until someone turns it back on',
+    onDuty: 'On duty', notSet: 'Tap to set your name',
+    whyFine: 'Why was it fine?', whatDone: 'What was done?', skip: 'Skip', addReason: 'Add reason', reasonSaved: 'Reason saved',
+    rFineTitle: 'Why false alarms happened', rDoneTitle: 'What guards did about real problems',
+    rX: 'The reason guards tapped after checking. Given for {g} of {n}. Tap a bar to see those alerts.', rNone: 'No reasons picked in this period yet.',
+    managerView: 'Manager view', simpleView: 'Simple view',
+    managerQ: 'Open the full dashboard with all pages? The simple guard screen comes back when this window is opened again.',
+    bwBadTitle: 'The AI Box is not answering', bwBadSub: 'Cameras are NOT being watched for alerts since {time}. Check the AI Box has power and its network cable, then tell the supervisor.',
+    bwQuietTitle: 'No signal from the AI Box for {dur}', bwQuietSub: 'No alerts or patrol signals since {time}. Check the AI Box is on and connected. Patrol alerts may be wrong until this is fixed.',
+    bwMute: 'Quiet for 1 hour', bwMuted: 'Voice off for 1 hour', hrs: '{h} h {m} min', mins: '{m} min',
+    sayBad: 'Warning. The AI box is not answering. Cameras are not being watched.', sayQuiet: 'Warning. No signal from the AI box for a long time. Please check it.', signOut: 'Sign out', signOutQ: 'Sign out of the dashboard?',
+    roleGuard: 'Full access', roleViewer: 'View only', notChecked: 'Not checked yet',
+    whoTitle: 'Who is on duty?', whoSub: 'Tap your name. You only do this once per shift.', other: 'Someone else…',
+    fine: '✓ Checked — all fine', problem: '⚠ Checked — real problem',
+    markedFine: 'Marked as all fine', markedProblem: 'Marked as a real problem', undo: 'Undo',
+    ackedFine: 'checked — all fine', ackedProblem: 'checked — real problem',
+    report: 'Incident report ↗', addNote: 'Add note', editNote: 'Edit note',
+    notePrompt: 'What did you find, and what did you do?',
+    noImage: 'no picture', justNow: 'just now', minAgo: '{n} min ago',
+    sevCritical: 'Critical', sevHigh: 'High', sevMedium: 'Notice', sevInfo: 'Log',
+    // alerts page
+    searchPh: 'Search — for example fall, gate, ramesh, or words from a note', allCameras: 'All cameras',
+    today: 'Today', d7: '7 days', d30: '30 days', allTime: 'All time',
+    stAll: 'Any status', stOpen: 'Not checked', stReal: 'Real problem', stFalse: 'False alarm',
+    typeAll: 'All types', typeOther: 'Other', showMore: 'Show more',
+    download: 'Download', dlExcelX: 'Every row, ready to sort, filter and share', dlCsvX: 'Plain table for other software', dlPdfX: 'A PDF file, ready to send',
+    results: '{n} alerts', result1: '1 alert', showingN: 'Showing {shown} of {n} alerts',
+    nothing: 'No alerts match these filters.', clearFilters: 'Clear filters',
+    // patrol page
+    day: 'Day', night: 'Night', total: 'Total', now: 'now',
+    visits: '{n} visits', visit1: '1 visit', gapsN: '{n} gaps', gap1: '1 gap', noGaps: 'no gaps',
+    postManned: 'post must be manned', patrolEvery: 'patrol every {n} min', noCheckpoints: 'No checkpoints are set up yet.',
+    // analytics page
+    inPlainWords: 'In plain words',
+    periodL: 'Period', perHour: 'Last hour', perToday: 'Today', perYesterday: 'Yesterday', perWeek: 'This week', per7: 'Last 7 days',
+    perMonth: 'This month', per30: 'Last 30 days', per90: 'Last 90 days', perCustom: 'Choose dates…',
+    showBy: 'Show by', gHour: 'Hourly', gDay: 'Daily', gWeek: 'Weekly', gMonth: 'Monthly',
+    overTime: 'Alerts over time', overTimeX: 'Each bar is one {unit}. Tap a bar to see those alerts.',
+    unitHour: 'hour', unitDay: 'day', unitWeek: 'week', unitMonth: 'month', weekOf: 'Week of {d}',
+    print: 'Print', printTip: 'Print this page on paper', makingPdf: 'Making PDF…',
+    pdfFailed: 'Could not make a PDF on this computer. Use Print and choose Save as PDF.',
+    kTotal: 'Total alerts', kTotalX: 'How many times the cameras reported something to look at.',
+    kReal: 'Real problems', kRealX: 'Alerts a guard checked and confirmed were real.',
+    kFalse: 'False alarms', kFalseX: '{p}% of the alerts that were checked turned out to be nothing.', kFalseX0: 'Alerts that turned out to be nothing.',
+    kOpen: 'Not checked yet', kOpenX: 'Alerts nobody has marked as checked.',
+    kResp: 'Time to check', kRespX: 'On average, from an alert appearing to a guard marking it.',
+    kPatrol: 'Patrols on time', kPatrolX: 'How much of the time every checkpoint was visited within its limit.',
+    vsMore: '▲ {n} more than {prev}', vsFewer: '▼ {n} fewer than {prev}', vsSame: 'Same as {prev}',
+    vsNone: 'Nothing earlier to compare with yet',
+    vsFaster: '▼ {n} min faster than {prev}', vsSlower: '▲ {n} min slower than {prev}',
+    vsPtsUp: '▲ {n} points higher than {prev}', vsPtsDown: '▼ {n} points lower than {prev}',
+    better: 'better', worse: 'worse',
+    byType: 'By type of alert', byTypeX: 'Each card is one kind of alert. Tap a card to see those alerts.',
+    shareOf: '{p}% of all alerts', noneThisPeriod: 'None in this period',
+    lblReal: 'real', lblOpen: 'not checked', lblFalse: 'false alarm',
+    busiestAt: 'most at {cam}', aroundHour: 'mostly around {h}', checkedIn: 'checked in {m} min on average',
+    whenTitle: 'When alerts happen', whenX: 'Alerts in each hour of the day. The shaded hours are night (6 pm to 6 am).',
+    whereTitle: 'Where alerts happen', whereX: 'Alerts from each camera. Tap a bar to see those alerts.',
+    respTitle: 'How quickly alerts were checked', respX: 'Time between an alert appearing and a guard marking it.',
+    r2: 'Within 2 minutes', r5: '2 to 5 minutes', r15: '5 to 15 minutes', rMore: 'More than 15 minutes', rNever: 'Not checked yet',
+    guardTitle: 'Who checked alerts', guardX: 'How many alerts each person marked, and how quickly.',
+    gName: 'Name', gChecked: 'Checked', gAvg: 'Average time', gReal: 'Real', gFalse: 'False alarm', noGuards: 'Nobody has checked an alert in this period.',
+    heatTitle: 'Alerts by hour and camera', showNumbers: 'show numbers', fewer: 'fewer', more: 'more',
+    heatX: 'Darker squares mean more alerts at that camera in that hour. A camera that is dark at the same hour every day usually needs adjusting.',
+    falsePct: '{p}% false alarms', alertsN: 'alerts', alert1: 'alert', min: 'min', noData: 'No alerts in this period.',
+    tapStart: 'Tap anywhere to start', tapSub: 'the browser needs one tap before it can play sound',
+  },
+  hi: {
+    tabLive: 'लाइव', tabAlerts: 'सूचनाएँ', tabPatrol: 'गश्त', tabAnalytics: 'विश्लेषण',
+    pgLiveSub: 'कैमरे अभी क्या देख रहे हैं, और क्या जाँचना अभी बाकी है।',
+    pgAlertsSub: 'सिस्टम ने जो भी सूचनाएँ दर्ज कीं, सब यहाँ हैं। खोजें, छाँटें और निकालें।',
+    pgPatrolSub: 'क्या गार्ड पूरे दिन हर चेकपॉइंट पर समय से पहुँचे।',
+    pgAnalyticsSub: 'क्या हुआ — आसान शब्दों और सरल चार्ट में।',
+    needsChecking: 'जाँच बाकी', attnNone: 'अभी कुछ भी जाँचना बाकी नहीं है।', noLive: 'लाइव कैमरे नहीं जुड़े हैं।',
+    showAll: 'सभी कैमरे दिखाएँ', showOne: 'एक बड़ा दिखाएँ', alertHere: 'यहाँ सूचना',
+    offline: 'बंद है', liveVideo: 'लाइव वीडियो', stillsAll: 'तस्वीरें, हर सेकंड एक',
+    camsOffline: 'कैमरे नहीं मिल रहे', someOff: '· {n} बंद',
+    connecting: 'जुड़ रहा है…', liveOk: 'लाइव', reconnecting: 'फिर जुड़ रहा है…',
+    needAttention: 'जाँच बाकी', allClear: 'सब ठीक है',
+    alertsNeed: '{n} सूचना की जाँच बाकी', alertsNeedP: '{n} सूचनाओं की जाँच बाकी',
+    soundOn: '🔊 आवाज़ चालू', soundOff: '🔇 आवाज़ बंद', soundClick: '🔊 आवाज़ चालू करें',
+    soundChime: '🔔 सिर्फ़ घंटी', soundOffUntil: '🔇 {time} तक आवाज़ बंद',
+    sndAll: 'घंटी और बोलकर', sndAllX: 'घंटी, और हर सूचना बोलकर सुनाई जाए', sndChime: 'सिर्फ़ घंटी', sndChimeX: 'घंटी बजे, बोले नहीं',
+    snd30: '30 मिनट के लिए बंद', snd60: '1 घंटे के लिए बंद', sndBackX: '{time} पर अपने आप चालू हो जाएगी',
+    sndOff: 'बंद', sndOffX: 'जब तक कोई फिर से चालू न करे, चुप रहेगी',
+    onDuty: 'ड्यूटी पर', notSet: 'अपना नाम चुनें',
+    whyFine: 'सब ठीक क्यों था?', whatDone: 'क्या किया गया?', skip: 'छोड़ें', addReason: 'वजह जोड़ें', reasonSaved: 'वजह दर्ज की',
+    rFineTitle: 'झूठी सूचनाएँ क्यों आईं', rDoneTitle: 'असली समस्याओं पर गार्डों ने क्या किया',
+    rX: 'जाँच के बाद गार्ड ने जो वजह चुनी। {n} में से {g} में वजह दी गई। वे सूचनाएँ देखने के लिए पट्टी पर टैप करें।', rNone: 'इस दौरान अभी कोई वजह नहीं चुनी गई।',
+    managerView: 'मैनेजर व्यू', simpleView: 'सरल व्यू',
+    managerQ: 'सभी पेज वाला पूरा डैशबोर्ड खोलें? यह विंडो दोबारा खोलने पर गार्ड वाली सरल स्क्रीन लौट आएगी।',
+    bwBadTitle: 'AI बॉक्स जवाब नहीं दे रहा', bwBadSub: '{time} से कैमरों पर सूचनाओं की निगरानी नहीं हो रही। AI बॉक्स की बिजली और नेटवर्क तार देखें, फिर सुपरवाइज़र को बताएँ।',
+    bwQuietTitle: '{dur} से AI बॉक्स से कोई सिग्नल नहीं', bwQuietSub: '{time} से कोई सूचना या गश्त का सिग्नल नहीं आया। देखें कि AI बॉक्स चालू और जुड़ा है। जब तक यह ठीक न हो, गश्त की सूचनाएँ गलत हो सकती हैं।',
+    bwMute: '1 घंटे के लिए चुप', bwMuted: '1 घंटे आवाज़ बंद', hrs: '{h} घंटे {m} मिनट', mins: '{m} मिनट',
+    sayBad: 'ध्यान दें। AI बॉक्स जवाब नहीं दे रहा। कैमरों पर निगरानी नहीं हो रही।', sayQuiet: 'ध्यान दें। काफ़ी देर से AI बॉक्स से कोई सिग्नल नहीं आया। कृपया जाँच करें।', signOut: 'साइन आउट', signOutQ: 'डैशबोर्ड से साइन आउट करें?',
+    roleGuard: 'पूरा अधिकार', roleViewer: 'सिर्फ़ देखने के लिए', notChecked: 'अभी जाँच नहीं हुई',
+    whoTitle: 'ड्यूटी पर कौन है?', whoSub: 'अपने नाम पर टैप करें। यह हर शिफ्ट में एक बार ही करना है।', other: 'कोई और…',
+    fine: '✓ देखा — सब ठीक है', problem: '⚠ देखा — समस्या है',
+    markedFine: 'सब ठीक है, दर्ज किया', markedProblem: 'समस्या दर्ज की', undo: 'वापस लें',
+    ackedFine: 'देखा — सब ठीक', ackedProblem: 'देखा — समस्या थी',
+    report: 'घटना रिपोर्ट ↗', addNote: 'टिप्पणी जोड़ें', editNote: 'टिप्पणी बदलें',
+    notePrompt: 'आपने क्या पाया और क्या किया?',
+    noImage: 'तस्वीर नहीं', justNow: 'अभी', minAgo: '{n} मिनट पहले',
+    sevCritical: 'गंभीर', sevHigh: 'ज़रूरी', sevMedium: 'सूचना', sevInfo: 'लॉग',
+    searchPh: 'खोजें — जैसे गिरना, लीची, रमेश, या टिप्पणी के शब्द', allCameras: 'सभी कैमरे',
+    today: 'आज', d7: '7 दिन', d30: '30 दिन', allTime: 'सभी समय',
+    stAll: 'कोई भी स्थिति', stOpen: 'जाँच बाकी', stReal: 'असली समस्या', stFalse: 'झूठी सूचना',
+    typeAll: 'सभी प्रकार', typeOther: 'अन्य', showMore: 'और दिखाएँ',
+    download: 'डाउनलोड', dlExcelX: 'हर पंक्ति — छाँटने, फ़िल्टर करने और भेजने के लिए', dlCsvX: 'दूसरे सॉफ़्टवेयर के लिए सादी तालिका', dlPdfX: 'भेजने के लिए तैयार PDF फ़ाइल',
+    results: '{n} सूचनाएँ', result1: '1 सूचना', showingN: '{n} में से {shown} सूचनाएँ दिखा रहे हैं',
+    nothing: 'इन फ़िल्टर से कोई सूचना नहीं मिली।', clearFilters: 'फ़िल्टर हटाएँ',
+    day: 'दिन', night: 'रात', total: 'कुल', now: 'अभी',
+    visits: '{n} बार आए', visit1: '1 बार आए', gapsN: '{n} अंतराल', gap1: '1 अंतराल', noGaps: 'कोई अंतराल नहीं',
+    postManned: 'चौकी पर कोई होना चाहिए', patrolEvery: 'हर {n} मिनट में गश्त', noCheckpoints: 'अभी कोई चेकपॉइंट सेट नहीं है।',
+    inPlainWords: 'आसान शब्दों में',
+    periodL: 'समय', perHour: 'पिछला एक घंटा', perToday: 'आज', perYesterday: 'कल', perWeek: 'इस हफ़्ते', per7: 'पिछले 7 दिन',
+    perMonth: 'इस महीने', per30: 'पिछले 30 दिन', per90: 'पिछले 90 दिन', perCustom: 'तारीखें चुनें…',
+    showBy: 'दिखाएँ', gHour: 'घंटेवार', gDay: 'रोज़ाना', gWeek: 'हफ़्तेवार', gMonth: 'महीनेवार',
+    overTime: 'समय के साथ सूचनाएँ', overTimeX: 'हर पट्टी एक {unit} है। वे सूचनाएँ देखने के लिए पट्टी पर टैप करें।',
+    unitHour: 'घंटा', unitDay: 'दिन', unitWeek: 'हफ़्ता', unitMonth: 'महीना', weekOf: '{d} वाला हफ़्ता',
+    print: 'प्रिंट', printTip: 'यह पेज कागज़ पर प्रिंट करें', makingPdf: 'PDF बन रहा है…',
+    pdfFailed: 'इस कंप्यूटर पर PDF नहीं बन सका। प्रिंट दबाएँ और Save as PDF चुनें।',
+    kTotal: 'कुल सूचनाएँ', kTotalX: 'कैमरों ने कितनी बार कुछ देखने लायक बताया।',
+    kReal: 'असली समस्याएँ', kRealX: 'जिन्हें गार्ड ने जाँचकर असली पाया।',
+    kFalse: 'झूठी सूचनाएँ', kFalseX: 'जाँची गई सूचनाओं में से {p}% बेकार निकलीं।', kFalseX0: 'जो सूचनाएँ बेकार निकलीं।',
+    kOpen: 'अभी जाँच बाकी', kOpenX: 'जिन्हें अभी तक किसी ने जाँचा नहीं।',
+    kResp: 'जाँच में समय', kRespX: 'औसतन, सूचना आने से गार्ड के जाँचने तक।',
+    kPatrol: 'समय पर गश्त', kPatrolX: 'कितने समय तक हर चेकपॉइंट पर समय से गश्त हुई।',
+    vsMore: '▲ {prev} से {n} ज़्यादा', vsFewer: '▼ {prev} से {n} कम', vsSame: '{prev} जितनी ही',
+    vsNone: 'तुलना के लिए पहले का डेटा नहीं',
+    vsFaster: '▼ {prev} से {n} मिनट तेज़', vsSlower: '▲ {prev} से {n} मिनट धीमा',
+    vsPtsUp: '▲ {prev} से {n} अंक ज़्यादा', vsPtsDown: '▼ {prev} से {n} अंक कम',
+    better: 'बेहतर', worse: 'खराब',
+    byType: 'सूचना के प्रकार के अनुसार', byTypeX: 'हर कार्ड एक तरह की सूचना है। वे सूचनाएँ देखने के लिए कार्ड पर टैप करें।',
+    shareOf: 'सभी सूचनाओं का {p}%', noneThisPeriod: 'इस दौरान कोई नहीं',
+    lblReal: 'असली', lblOpen: 'जाँच बाकी', lblFalse: 'झूठी',
+    busiestAt: 'सबसे ज़्यादा {cam} पर', aroundHour: 'ज़्यादातर {h} के आसपास', checkedIn: 'औसतन {m} मिनट में जाँची गई',
+    whenTitle: 'सूचनाएँ कब आती हैं', whenX: 'दिन के हर घंटे में आई सूचनाएँ। छायांकित घंटे रात के हैं (शाम 6 से सुबह 6)।',
+    whereTitle: 'सूचनाएँ कहाँ आती हैं', whereX: 'हर कैमरे से आई सूचनाएँ। देखने के लिए पट्टी पर टैप करें।',
+    respTitle: 'सूचनाएँ कितनी जल्दी जाँची गईं', respX: 'सूचना आने और गार्ड के जाँचने के बीच का समय।',
+    r2: '2 मिनट के अंदर', r5: '2 से 5 मिनट', r15: '5 से 15 मिनट', rMore: '15 मिनट से ज़्यादा', rNever: 'अभी जाँच बाकी',
+    guardTitle: 'किसने सूचनाएँ जाँचीं', guardX: 'हर व्यक्ति ने कितनी सूचनाएँ जाँचीं, और कितनी जल्दी।',
+    gName: 'नाम', gChecked: 'जाँचीं', gAvg: 'औसत समय', gReal: 'असली', gFalse: 'झूठी', noGuards: 'इस दौरान किसी ने कोई सूचना नहीं जाँची।',
+    heatTitle: 'घंटे और कैमरे के अनुसार सूचनाएँ', showNumbers: 'संख्या दिखाएँ', fewer: 'कम', more: 'ज़्यादा',
+    heatX: 'गहरे खाने का मतलब उस कैमरे पर उस घंटे ज़्यादा सूचनाएँ। अगर कोई कैमरा रोज़ एक ही घंटे गहरा दिखे, तो उसे ठीक करना चाहिए।',
+    falsePct: '{p}% झूठी', alertsN: 'सूचनाएँ', alert1: 'सूचना', min: 'मिनट', noData: 'इस दौरान कोई सूचना नहीं।',
+    tapStart: 'शुरू करने के लिए टैप करें', tapSub: 'आवाज़ चलाने से पहले ब्राउज़र को एक टैप चाहिए',
+  },
+}
+let lang; try { lang = localStorage.lang === 'hi' ? 'hi' : 'en' } catch { lang = 'en' }
+const t = (k, vars) => {
+  let v = I18N[lang][k] ?? I18N.en[k] ?? k
+  if (vars) for (const [n, x] of Object.entries(vars)) v = v.replaceAll(`{${n}}`, x)
+  return v
+}
+const L = rule => (lang === 'hi' && meta.labels_hi?.[rule]) || meta.labels[rule] || rule
+const locale = () => (lang === 'hi' ? 'hi-IN' : 'en-IN')
+const sevLabel = sev => t('sev' + sev[0].toUpperCase() + sev.slice(1))
+const hourLabel = h => lang === 'hi'
+  ? `${h < 4 ? 'रात' : h < 12 ? 'सुबह' : h < 16 ? 'दोपहर' : h < 20 ? 'शाम' : 'रात'} ${h % 12 || 12} बजे`
+  : h === 0 ? 'midnight' : h === 12 ? 'noon' : h < 12 ? `${h} am` : `${h - 12} pm`
+
+$('ver').textContent = 'v' + (meta.version ?? '?')
+document.documentElement.lang = lang
+document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t) })
+document.querySelectorAll('[data-title]').forEach(el => { el.title = t(el.dataset.title) })
+$('lang').textContent = lang === 'en' ? 'हिंदी' : 'English'
+$('lang').onclick = () => { localStorage.lang = lang === 'en' ? 'hi' : 'en'; location.reload() }
+
+// ---- who is on duty --------------------------------------------------------
+// One tap at the start of a shift; after that, checking an alert is a single button.
+const whoModal = $('who')
+const paintWho = () => {
+  $('whoBtn').innerHTML = !KIOSK ? `<b>${esc(ME.name)}</b> · ${t(canAct ? 'roleGuard' : 'roleViewer')} · ${t('signOut')}`
+    : localStorage.name ? `${t('onDuty')}: <b>${esc(localStorage.name)}</b>` : t('notSet')
+}
+$('names').append(...[...(meta.guards ?? []), t('other')].map(n => {
+  const b = document.createElement('button'); b.textContent = n
+  b.onclick = () => {
+    const v = n === t('other') ? (prompt(t('whoTitle')) || '').trim() : n
+    if (v) { localStorage.name = v; paintWho() }
+    whoModal.classList.remove('on')
+  }
+  return b
+}))
+const askWho = () => { whoModal.classList.add('on'); return false }
+$('whoBtn').onclick = KIOSK ? askWho : async () => {
+  if (!confirm(t('signOutQ'))) return
+  await send('/api/logout'); location.replace('/login')
+}
+paintWho()
+
+$('modeBtn').hidden = !SIMPLE_HOME
+$('modeBtn').textContent = t(SIMPLE ? 'managerView' : 'simpleView')
+$('modeBtn').onclick = () => {
+  try {
+    if (SIMPLE) { if (!confirm(t('managerQ'))) return; sessionStorage.fullView = '1' }
+    else sessionStorage.removeItem('fullView')
+  } catch {}
+  location.hash = 'live'
+  location.reload()
+}
+
+// ---- undo ------------------------------------------------------------------
+let undoTimer = null
+function notify(text) {
+  $('undoText').textContent = text; $('undoBtn').hidden = true
+  $('undo').classList.add('on')
+  clearTimeout(undoTimer); undoTimer = setTimeout(() => $('undo').classList.remove('on'), 8000)
+}
+function offerUndo(text, fn) {
+  $('undoText').textContent = text; $('undoBtn').hidden = false
+  $('undo').classList.add('on')
+  clearTimeout(undoTimer); undoTimer = setTimeout(() => $('undo').classList.remove('on'), 6000)
+  $('undoBtn').onclick = async () => { $('undo').classList.remove('on'); clearTimeout(undoTimer); await fn() }
+}
+
+// ---- clock -----------------------------------------------------------------
+$('conn').textContent = t('connecting')
+const tick = () => { $('clock').textContent = new Date().toLocaleString(locale(), { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+tick(); setInterval(tick, 10_000)
+
+// ============================================================================
+// Navigation — one tab bar, exactly one page on screen. The address bar holds the
+// page (#live, #alerts, #patrol, #analytics), so Back works and a refresh keeps you
+// where you were. Each page says what it is for in the same place, the same way.
+// ============================================================================
+const TABS = ['live', 'alerts', 'patrol', 'analytics']
+const enter = {}, leave = {}
+let tab = null
+function go(name) {
+  if (TV || SIMPLE) name = 'live'
+  if (!TABS.includes(name)) name = 'live'
+  if (name === tab) return
+  if (tab) leave[tab]?.()
+  tab = name
+  for (const n of TABS) {
+    $('page-' + n).hidden = n !== name
+    document.querySelector(`.tab[data-tab="${n}"]`)?.setAttribute('aria-selected', String(n === name))
+  }
+  try { localStorage.tab = name } catch {}
+  window.scrollTo({ top: 0 })
+  enter[name]?.()
+}
+document.querySelectorAll('.tab').forEach(b => { b.onclick = () => { location.hash = b.dataset.tab } })
+addEventListener('hashchange', () => go(location.hash.slice(1)))
+$('countwrap').onclick = () => { location.hash = 'live' }
+
+function seg(id, value, onChange) {
+  const el = $(id)
+  const paint = v => el.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)))
+  el.querySelectorAll('button').forEach(b => { b.onclick = () => { paint(b.dataset.v); onChange(b.dataset.v) } })
+  paint(value)
+  return paint
+}
+const emptyEl = text => Object.assign(document.createElement('div'), { className: 'empty', textContent: text })
+
+// ============================================================================
+// The alert card — the same component on the Live and Alerts pages.
+// ============================================================================
+const ago = ts => {
+  const m = Math.round((Date.now() - ts) / 60000)
+  return m < 1 ? t('justNow') : m < 60 ? t('minAgo', { n: m })
+    : new Date(ts).toLocaleString(locale(), { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+}
+const liveImg = id => `/live/${id.replace('/', '_')}.jpg`
+window.ph = () => { const d = document.createElement('div'); d.className = 'shot ph'; d.textContent = t('noImage'); return d }
+const shot = a => a.snapshot
+  ? `<img class="shot" alt="" src="${esc(a.snapshot.startsWith('http') ? a.snapshot : '/snapshots/' + a.snapshot)}"
+       onerror="this.replaceWith(ph())" onload="if(this.naturalWidth<32)this.replaceWith(ph())">`
+  : meta.live && /\/ch\d+$/.test(a.camera_id)
+  ? `<img class="shot" alt="" src="${esc(liveImg(a.camera_id))}?t=${Date.now()}" onerror="this.replaceWith(ph())">`
+  : window.ph().outerHTML
+
+let attn = [], listBase = []
+
+function card(a, isNew) {
+  const el = document.createElement('article')
+  el.className = 'card' + (a.ack_at ? ' acked' : '') + (isNew ? ' new' : '')
+  el.dataset.id = a.id
+  el.style.setProperty('--sev', `var(--${a.severity})`)
+  // Anything that came from outside (a guard's typed name, a note, a camera name in an
+  // event) is escaped before it goes into the page.
+  el.innerHTML = `${shot(a)}<div class="body">
+    <div class="top"><span class="badge">${sevLabel(a.severity)}</span><span class="meta" data-ts="${a.ts}">${ago(a.ts)}</span></div>
+    <div class="rule">${esc(L(a.rule))}</div>
+    <div class="cam">${esc(a.camera_name ?? a.camera_id)}${a.location ? ` · ${esc(a.location)}` : ''}</div>
+    ${a.severity === 'info' ? '' : a.ack_at
+      ? `<div class="ok">✓ ${esc(a.ack_by)} — ${t(a.outcome === 'false_alarm' ? 'ackedFine' : 'ackedProblem')}${a.reason ? ` · <b>${esc(reasonText(a.reason))}</b>` : ''}</div>
+         ${canAct && !a.reason && picking.has(a.id) ? `<div class="reasons"><span class="why">${t(a.outcome === 'false_alarm' ? 'whyFine' : 'whatDone')}</span>
+           ${reasonsFor(a).map(r => `<button data-r="${esc(r.code)}">${esc(reasonText(r.code))}</button>`).join('')}
+           <button class="skip">${t('skip')}</button></div>` : ''}`
+      : !canAct ? `<div class="meta">${t('notChecked')}</div>`
+      : `<div class="acts"><button class="act" data-o="action_taken">${t('problem')}</button>
+           <button class="act" data-o="false_alarm">${t('fine')}</button></div>`}
+    ${a.note ? `<div class="note">${esc(a.note)}</div>` : ''}
+    ${a.severity === 'info' ? '' : `<div class="tools"><a href="/report/${a.id}" target="_blank">${t('report')}</a>
+       ${canAct ? `<button class="addnote">${t(a.note ? 'editNote' : 'addNote')}</button>` : ''}
+       ${canAct && a.ack_at && !a.reason && !picking.has(a.id) && reasonsFor(a).length ? `<button class="addreason">${t('addReason')}</button>` : ''}</div>`}
+  </div>`
+  el.querySelectorAll('.act').forEach(b => {
+    b.onclick = async () => {
+      if (KIOSK && !localStorage.name) return askWho()
+      // A signed-in guard is recorded by their account name; the server ignores ack_by for them.
+      picking.add(a.id)                                    // the card now asks why, one tap
+      applyRow(await send(`/api/alerts/${a.id}/ack`, { ack_by: localStorage.name, outcome: b.dataset.o }))
+      offerUndo(t(b.dataset.o === 'false_alarm' ? 'markedFine' : 'markedProblem'), async () => {
+        picking.delete(a.id)
+        applyRow(await send(`/api/alerts/${a.id}/unack`))
+      })
+    }
+  })
+  el.querySelectorAll('.reasons button').forEach(b => {
+    b.onclick = async () => {
+      picking.delete(a.id)
+      if (b.dataset.r) applyRow(await send(`/api/alerts/${a.id}/reason`, { reason: b.dataset.r }))
+      else applyRow(a)
+      leaveSoon(a.id, 2500)
+    }
+  })
+  el.querySelector('.addreason')?.addEventListener('click', () => { picking.add(a.id); applyRow(a) })
+  el.querySelector('.addnote')?.addEventListener('click', async () => {
+    const note = prompt(t('notePrompt'), a.note ?? '')
+    if (note == null) return
+    applyRow(await send(`/api/alerts/${a.id}/note`, { note }))
+  })
+  return el
+}
+
+// Alerts marked on this screen that are still asking for a reason.
+const picking = new Set()
+// A checked alert leaves "Needs checking" a little later: after the undo window, or once a reason
+// is tapped. While the reason buttons are showing it waits longer, so nobody is rushed.
+const leaving = new Map()
+function leaveSoon(id, ms) {
+  clearTimeout(leaving.get(id))
+  leaving.set(id, setTimeout(() => {
+    leaving.delete(id); picking.delete(id)
+    const i = attn.findIndex(r => r.id === id)
+    if (i >= 0 && attn[i].ack_at) {
+      attn.splice(i, 1)
+      document.querySelector(`#attnFeed .card[data-id="${id}"]`)?.remove()
+      if (!$('attnFeed').children.length) $('attnFeed').append(emptyEl(t('attnNone')))
+      tally()
+    }
+  }, ms))
+}
+
+/** One alert changed (checked, undone, a reason, a note, its photo arrived). Update it everywhere it is shown. */
+function applyRow(row) {
+  if (!row || row.id == null) return
+  for (const list of [attn, listBase]) { const x = list.find(r => r.id === row.id); if (x) Object.assign(x, row) }
+  const src = attn.find(r => r.id === row.id) ?? listBase.find(r => r.id === row.id) ?? row
+  document.querySelectorAll(`.card[data-id="${row.id}"]`).forEach(el => el.replaceWith(card(src)))
+  if (row.ack_at) {
+    if (!leaving.has(row.id) || picking.has(row.id)) leaveSoon(row.id, picking.has(row.id) ? 45_000 : 7000)
+  } else if (RANK[row.severity] && !attn.some(r => r.id === row.id)) {
+    attn.unshift(row); renderAttn()
+  }
+  tally()
+}
+
+// ============================================================================
+// LIVE — the cameras, and the alerts nobody has checked yet.
+// ============================================================================
+const pending = () => attn.filter(a => !a.ack_at)
+async function loadAttn() {
+  attn = (await getJSON('/api/alerts?unacked=1&limit=500')).filter(a => RANK[a.severity])
+  renderAttn()
+}
+function renderAttn() {
+  const shown = TV ? attn.slice(0, TV_CARDS) : attn
+  $('attnFeed').replaceChildren(...(shown.length ? shown.map(a => card(a)) : [emptyEl(t('attnNone'))]))
+  tally()
+}
+function tally() {
+  const n = pending().length
+  $('unacked').textContent = n
+  $('countwrap').classList.toggle('zero', n === 0)
+  $('attnCount').textContent = n ? (n === 1 ? t('result1') : t('results', { n })) : ''
+  paintStatus()
+}
+
+// One big picture plus a strip of small ones. Only the big one plays video: eight
+// streams would load the AI Box and nobody can watch eight anyway.
+const liveSec = $('live'), strip = $('strip'), stage = $('stage'), bigv = $('bigv'), bigi = $('bigi')
+const cams = meta.cameras.filter(c => /\/ch\d+$/.test(c.id))
+const liveOn = () => tab === 'live' && meta.live
+let grid = localStorage.grid === '1'
+let focusId = cams.some(c => c.id === localStorage.focus) ? localStorage.focus : cams[0]?.id
+let manualFocus = focusId, autoTimer = null, hls = null, liveStarted = false
+const chOf = id => id.replace(/.*ch/, '')
+const camOf = id => cams.find(c => c.id === id)
+
+strip.append(...cams.map(c => {
+  const el = document.createElement('div'); el.className = 'tile'; el.dataset.id = c.id
+  el.innerHTML = `<img alt=""><span class="rec">LIVE</span><span class="tag">${esc(c.name)}</span>`
+  const img = el.querySelector('img'); let miss = 0
+  img.onerror = () => { if (++miss >= 3) el.classList.add('off') }
+  img.onload = () => { miss = 0; el.classList.remove('off') }
+  el.onclick = () => { manualFocus = c.id; if (grid) { grid = false; localStorage.grid = '0'; syncLayout() } setFocus(c.id) }
+  return el
+}))
+
+function setFocus(id, auto = false) {
+  const c = camOf(id); if (!c) return
+  focusId = id
+  if (!auto) localStorage.focus = id
+  $('bigname').textContent = c.name
+  $('bigsub').textContent = c.location ?? ''
+  strip.querySelectorAll('.tile').forEach(el => el.classList.toggle('focused', el.dataset.id === id))
+  stage.classList.toggle('alarm', auto)
+  $('afBadge').hidden = !auto
+  playBig(id)
+}
+
+function stopBig() { if (hls) { hls.destroy(); hls = null } bigv.removeAttribute('src') }
+function playBig(id) {
+  stopBig()
+  bigv.hidden = false; bigi.hidden = true
+  stage.classList.remove('nopic')
+  const toStill = () => {
+    stopBig()
+    bigv.hidden = true; bigi.hidden = false
+    bigi.onerror = () => { stage.classList.add('nopic'); stage.dataset.msg = t('offline'); bigi.hidden = true }
+    bigi.onload = () => stage.classList.remove('nopic')
+    bigi.src = liveImg(id) + '?t=' + Date.now()
+  }
+  // Attaching without an error is not the same as playing. No frame in 6 s → show stills.
+  let painted = false
+  const gaveUp = setTimeout(() => { if (!painted) toStill() }, 6000)
+  bigv.onloadeddata = () => { if (bigv.videoWidth > 0) { painted = true; clearTimeout(gaveUp) } }
+  const src = `/hls/ch${chOf(id)}`
+  if (window.Hls?.isSupported()) {
+    hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 2, manifestLoadingMaxRetry: 1 })
+    hls.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) { clearTimeout(gaveUp); toStill() } })
+    hls.loadSource(src); hls.attachMedia(bigv); bigv.play().catch(() => {})
+  } else if (bigv.canPlayType('application/vnd.apple.mpegurl')) {
+    bigv.src = src; bigv.onerror = () => { clearTimeout(gaveUp); toStill() }; bigv.play().catch(() => {})
+  } else { clearTimeout(gaveUp); toStill() }
+}
+
+/** An alert arrived: show that camera big for 30 s, then go back to the camera you chose. */
+function autoFocus(cameraId) {
+  if (!liveOn() || grid || !camOf(cameraId)) return
+  clearTimeout(autoTimer)
+  setFocus(cameraId, true)
+  autoTimer = setTimeout(() => { if (liveOn() && !grid) setFocus(manualFocus) }, 30_000)
+}
+
+$('fsBtn').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : stage.requestFullscreen?.())
+stage.ondblclick = () => $('fsBtn').onclick()
+function syncLayout() {
+  liveSec.classList.toggle('grid', grid)
+  $('layoutBtn').textContent = grid ? t('showOne') : t('showAll')
+  if (grid) stopBig(); else if (focusId && liveOn()) setFocus(focusId)
+}
+$('layoutBtn').onclick = () => { grid = !grid; localStorage.grid = grid ? '1' : '0'; syncLayout() }
+
+// The strip refreshes round-robin, one camera every 250 ms. Offline cameras are retried rarely.
+let stillIx = 0, stillTick = 0
+function refreshStills() {
+  if (!liveOn()) return
+  const tiles = [...strip.children]; if (!tiles.length) return
+  const el = tiles[stillIx++ % tiles.length]
+  if (el.classList.contains('off') && ++stillTick % 20 !== 0) return
+  if (!grid && el.dataset.id === focusId && !bigi.hidden) bigi.src = liveImg(focusId) + '?t=' + Date.now()
+  el.querySelector('img').src = liveImg(el.dataset.id) + '?t=' + Date.now()
+}
+function paintLiveMode() {
+  if (!liveOn()) return
+  const off = strip.querySelectorAll('.tile.off').length
+  const main = grid ? '' : stage.classList.contains('nopic') ? t('camsOffline') : !bigi.hidden ? t('stillsAll') : t('liveVideo')
+  $('livemode').textContent = [main, off ? t('someOff', { n: off }) : ''].filter(Boolean).join(' ')
+}
+
+enter.live = () => {
+  if (!meta.live) { liveSec.hidden = true; $('noLive').hidden = false; $('layoutBtn').hidden = true; return }
+  if (!liveStarted) { liveStarted = true; setInterval(refreshStills, 250); setInterval(paintLiveMode, 2000) }
+  syncLayout()
+}
+leave.live = () => { stopBig(); clearTimeout(autoTimer) }
+
+// ============================================================================
+// ALERTS — every alert, with search and filters. Status and type filter in the page;
+// search, camera and date range ask the server.
+// ============================================================================
+const PAGE = 60
+const F = { q: '', cam: '', range: '7', status: 'all', rule: null, span: null, reason: null }   // span: exact from/to, from Analytics
+let listRows = [], listShown = 0, qTimer = null
+
+$('fq').placeholder = t('searchPh')
+$('fcam').replaceChildren(new Option(t('allCameras'), ''), ...meta.cameras.map(c => new Option(c.name, c.id)))
+const paintRange = seg('frange', F.range, v => { F.range = v; F.span = null; loadList() })
+const paintStatus_ = seg('fstatus', F.status, v => { F.status = v; paintList(true) })
+$('fq').oninput = () => { clearTimeout(qTimer); qTimer = setTimeout(() => { F.q = $('fq').value.trim(); loadList() }, 250) }
+$('fcam').onchange = () => { F.cam = $('fcam').value; loadList() }
+$('clearBtn').onclick = () => { Object.assign(F, { q: '', cam: '', range: '7', status: 'all', rule: null, span: null, reason: null }); syncFilterInputs(); loadList() }
+$('moreBtn').onclick = () => showMore()
+
+function syncFilterInputs() {
+  $('fq').value = F.q; $('fcam').value = F.cam; paintRange(F.range); paintStatus_(F.status)
+}
+function rangeFrom(v) {
+  if (v === 'all') return null
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (Number(v) - 1)); return d.getTime()
+}
+/** [from, to] of the list: the exact span from Analytics, or the Today / 7 / 30 / All buttons. */
+const listRange = () => F.span ? [F.span.from, F.span.to] : [rangeFrom(F.range), null]
+const statusOk = a => F.status === 'all' || (F.status === 'open' ? !a.ack_at
+  : F.status === 'real' ? a.outcome === 'action_taken' : a.outcome === 'false_alarm')
+
+async function loadList() {
+  const q = new URLSearchParams({ limit: 3000 })
+  if (F.q) q.set('q', F.q)
+  if (F.cam) q.set('camera', F.cam)
+  const [from, to] = listRange(); if (from) q.set('from', from); if (to) q.set('to', to)
+  if (F.reason) q.set('reason', F.reason)
+  listBase = (await getJSON('/api/alerts?' + q)).filter(a => a.rule !== 'person_seen')
+  paintList(true)
+}
+function paintChips() {
+  const pre = listBase.filter(statusOk)
+  const counts = {}; for (const a of pre) counts[a.rule] = (counts[a.rule] ?? 0) + 1
+  const types = Object.keys(meta.labels).filter(r => r !== 'person_seen' && r !== 'unknown')
+  if (counts.unknown) types.push('unknown')
+  const chip = (label, n, on, fn) => {
+    const b = document.createElement('button'); b.className = 'chip'
+    b.innerHTML = `${esc(label)}<small>${n}</small>`; b.setAttribute('aria-pressed', String(on)); b.onclick = fn
+    return b
+  }
+  $('typechips').replaceChildren(
+    chip(t('typeAll'), pre.length, F.rule === null, () => { F.rule = null; paintList(true) }),
+    ...types.map(r => chip(r === 'unknown' ? t('typeOther') : L(r), counts[r] ?? 0, F.rule === r,
+      () => { F.rule = F.rule === r ? null : r; paintList(true) })))
+}
+function paintList(reset) {
+  paintChips()
+  listRows = listBase.filter(statusOk).filter(a => !F.rule || a.rule === F.rule)
+  if (reset) { listShown = 0; $('listFeed').replaceChildren() }
+  if (!listRows.length) $('listFeed').replaceChildren(emptyEl(t('nothing')))
+  else showMore()
+  paintResult()
+}
+function showMore() {
+  const next = listRows.slice(listShown, listShown + PAGE)
+  $('listFeed').append(...next.map(a => card(a)))
+  listShown += next.length
+  $('moreBtn').hidden = listShown >= listRows.length
+  paintResult()
+}
+function paintResult() {
+  const n = listRows.length
+  $('resultText').textContent = (F.span ? `${F.span.label} · ` : '') + (F.reason ? `${reasonText(F.reason)} · ` : '') +
+    (listShown < n ? t('showingN', { shown: listShown, n }) : n === 1 ? t('result1') : t('results', { n }))
+  $('clearBtn').hidden = !(F.span || F.reason || F.q || F.cam || F.rule || F.status !== 'all' || F.range !== '7')
+}
+/** A new alert while the Alerts page is open: add it to the top if it fits the filters. */
+function listIncoming(a) {
+  if (tab !== 'alerts' || a.rule === 'person_seen' || F.q || F.reason) return
+  const [from, to] = listRange()
+  if ((from && a.ts < from) || (to && a.ts >= to) || (F.cam && a.camera_id !== F.cam)) return
+  listBase.unshift(a)
+  if (statusOk(a) && (!F.rule || a.rule === F.rule)) {
+    listRows.unshift(a); $('listFeed').querySelector('.empty')?.remove(); $('listFeed').prepend(card(a, true)); listShown++
+  }
+  paintChips(); paintResult()
+}
+/** From Analytics: the alerts behind a card, bar or square, for exactly the period on screen. */
+function openAlerts({ rule = null, cam = '', from = null, to = null, label = '', reason = null } = {}) {
+  const P = lastAn?.period
+  const span = from != null ? { from, to, label }
+    : P ? { from: P.from, to: P.live ? null : P.to, label: P.label[lang] ?? P.label.en } : null
+  Object.assign(F, { rule, cam, q: '', status: 'all', range: span ? null : '7', span, reason })
+  syncFilterInputs()
+  if (tab === 'alerts') loadList(); else location.hash = 'alerts'
+}
+enter.alerts = () => { syncFilterInputs(); loadList() }
+
+// ============================================================================
+// PATROL
+// ============================================================================
+let patDay = new Date(), patTimer = null
+$('pprev').onclick = () => { patDay.setDate(patDay.getDate() - 1); loadPatrol() }
+$('pnext').onclick = () => { patDay.setDate(patDay.getDate() + 1); loadPatrol() }
+const gauge = (label, v) => {
+  const c = v == null ? 'var(--faint)' : v >= 95 ? 'var(--ok)' : v >= 80 ? 'var(--high)' : 'var(--critical)'
+  return `<div class="gwrap"><div class="gauge" style="--p:${v ?? 0};--gc:${c}"></div><b>${v == null ? '—' : v + '%'}</b><span>${label}</span></div>`
+}
+async function loadPatrol() {
+  const r = await getJSON('/api/patrol?day=' + ymd(patDay))
+  $('pday').textContent = new Date(r.start).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })
+  const X = ts => ((ts - r.start) / (r.end - r.start) * 100).toFixed(2) + '%'
+  if (!r.checkpoints.length) { $('prows').innerHTML = `<div class="pempty">${t('noCheckpoints')}</div>`; return }
+  $('prows').replaceChildren(...r.checkpoints.map(cp => {
+    const el = document.createElement('div'); el.className = 'prow'
+    const kind = cp.rule === 'post_unmanned' ? t('postManned') : t('patrolEvery', { n: cp.threshold_min })
+    const gapsTxt = cp.gaps.length
+      ? `<b>${cp.gaps.length === 1 ? t('gap1') : t('gapsN', { n: cp.gaps.length })}</b> — ` +
+        cp.gaps.map(([a, b]) => `${hhmm(a)}–${b >= r.upto && r.upto < r.end ? t('now') : hhmm(b)}`).join(', ')
+      : t('noGaps')
+    el.innerHTML = `<div class="hd"><b>${esc(cp.name)}</b><span>${kind}</span>
+        <div class="kpi">${gauge(t('day'), cp.compliance.day)}${gauge(t('night'), cp.compliance.night)}${gauge(t('total'), cp.compliance.total)}</div></div>
+      <div class="strip">
+        <div class="night" style="left:0;width:${X(r.start + 6 * 3.6e6)}"></div>
+        <div class="night" style="left:${X(r.start + 18 * 3.6e6)};right:0"></div>
+        ${cp.gaps.map(([a, b]) => `<div class="g" style="left:${X(a)};width:${((b - a) / (r.end - r.start) * 100).toFixed(2)}%"></div>`).join('')}
+        ${cp.visits.map(v => `<div class="v" style="left:${X(v)}"></div>`).join('')}
+        ${r.upto < r.end ? `<div class="future" style="left:${X(r.upto)}"></div>` : ''}
+      </div>
+      <div class="hours"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+      <div class="gaps">${cp.visits.length === 1 ? t('visit1') : t('visits', { n: cp.visits.length })} · ${gapsTxt}</div>`
+    return el
+  }))
+}
+enter.patrol = () => { loadPatrol(); clearInterval(patTimer); patTimer = setInterval(loadPatrol, 60_000) }
+leave.patrol = () => clearInterval(patTimer)
+
+// ============================================================================
+// ANALYTICS — the numbers, the charts, and the same facts written as sentences.
+// ============================================================================
+// The period and "Show by". The server works out the exact times; "Show by" follows the
+// period (hourly for a day, daily for a month...) until someone picks one.
+const PERIOD_KEYS = ['hour', 'today', 'yesterday', 'week', '7d', 'month', '30d', '90d', 'custom']
+const AN = { period: '7d', from: '', to: '', group: null }
+try {
+  AN.period = PERIOD_KEYS.includes(localStorage.period) ? localStorage.period : { 1: 'today', 7: '7d', 30: '30d' }[localStorage.period] ?? '7d'
+  AN.from = localStorage.pfrom ?? ''; AN.to = localStorage.pto ?? ''
+} catch {}
+let anTimer = null, anSoon = null, anSeq = 0, lastAn = null
+const saveAn = () => { try { Object.assign(localStorage, { period: AN.period, pfrom: AN.from, pto: AN.to }) } catch {} }
+const anQuery = () => {
+  const q = new URLSearchParams({ period: AN.period })
+  if (AN.period === 'custom') { q.set('from', AN.from); q.set('to', AN.to) }
+  if (AN.group) q.set('group', AN.group)
+  return q
+}
+function syncPeriodInputs() {
+  const today = ymd(new Date())
+  if (!AN.from || !AN.to) { const d = new Date(); d.setDate(d.getDate() - 6); AN.from = ymd(d); AN.to = today }
+  $('period').value = AN.period
+  $('customRange').hidden = AN.period !== 'custom'
+  Object.assign($('pfrom'), { value: AN.from, max: today }); Object.assign($('pto'), { value: AN.to, max: today })
+}
+$('period').onchange = () => { AN.period = $('period').value; AN.group = null; saveAn(); syncPeriodInputs(); loadAnalytics() }
+$('pfrom').onchange = $('pto').onchange = () => {
+  if (!$('pfrom').value || !$('pto').value) return
+  ;[AN.from, AN.to] = [$('pfrom').value, $('pto').value].sort()
+  saveAn(); syncPeriodInputs(); loadAnalytics()
+}
+const paintGroup = seg('groupSeg', null, v => { AN.group = v; loadAnalytics() })
+syncPeriodInputs()
+$('heatnums').onchange = e => $('heat').classList.toggle('nums', e.target.checked)
+async function loadAnalytics() {
+  const n = ++anSeq, a = await getJSON('/api/analytics?' + anQuery())
+  if (n === anSeq) renderAnalytics(lastAn = a)          // a slow older answer must not overwrite a newer choice
+}
+enter.analytics = () => { loadAnalytics(); clearInterval(anTimer); anTimer = setInterval(loadAnalytics, 60_000) }
+leave.analytics = () => { clearInterval(anTimer); clearTimeout(anSoon) }
+
+const nAlerts = n => `${n} ${n === 1 ? t('alert1') : t('alertsN')}`
+const tipHour = h => `${hourLabel(h)} – ${hourLabel((h + 1) % 24)}`
+
+/** Column chart built from plain elements: crisp text at any size, one hue, rounded tops, 2 px gaps. */
+function colChart(vals, { tips, labels = null, night = null, mini = false, h }) {
+  const max = Math.max(1, ...vals)
+  const cols = vals.map((v, i) =>
+    `<div class="col${v ? '' : ' zero'}${night?.(i) ? ' night' : ''}" data-tip="${esc(tips[i])}"><i style="height:${(v / max * 100).toFixed(1)}%"></i></div>`).join('')
+  const grid = mini ? '' : `<div class="gl" style="bottom:100%"><span>${max}</span></div>` +
+    (max > 1 ? `<div class="gl" style="bottom:50%"><span>${Math.round(max / 2)}</span></div>` : '')
+  const xl = labels ? `<div class="xl">${labels.map(l => `<span>${l}</span>`).join('')}</div>` : ''
+  return `<div class="cchart${mini ? ' mini' : ''}" style="--n:${vals.length}${h ? `;--h:${h}px` : ''}"><div class="plot">${grid}${cols}</div>${xl}</div>`
+}
+/** Horizontal bars with the value written at the end, so no number depends on reading a length. */
+function hbars(items) {
+  const max = Math.max(1, ...items.map(i => i.value))
+  return `<div class="hbars">${items.map(i => `<div class="hb${i.key ? ' click' : ''}" ${i.key ? `data-key="${esc(i.key)}"` : ''} data-tip="${esc(i.tip)}">
+    <span class="hb-l">${esc(i.label)}${i.sub ? `<small>${esc(i.sub)}</small>` : ''}</span>
+    <span class="hb-t"><i class="${i.warn ? 'warn' : ''}" style="width:${i.value ? (i.value / max * 100).toFixed(1) : 0}%"></i></span>
+    <b class="hb-v">${i.value}</b></div>`).join('')}</div>`
+}
+
+function renderAnalytics(a) {
+  const T = a.totals, B = a.before
+  const P = a.period, prevWord = P.prev[lang] ?? P.prev.en
+  paintGroup(a.group)
+  const dayFmt = (ts, o) => new Date(ts).toLocaleDateString(locale(), o)
+  $('anPrintLine').textContent = `${P.label[lang] ?? P.label.en} · ${dayFmt(a.start, { day: 'numeric', month: 'short', year: 'numeric' })}, ${hhmm(a.start)} – ${dayFmt(a.end, { day: 'numeric', month: 'short', year: 'numeric' })}, ${hhmm(a.end)}`
+
+  // Names for one bar of the "over time" charts: full in the tooltip, short under the axis.
+  const bucketEnd = i => a.buckets[i + 1] ?? a.end
+  const bucketTip = i => { const b = a.buckets[i]
+    return a.group === 'hour' ? `${dayFmt(b, { weekday: 'short', day: 'numeric', month: 'short' })}, ${hhmm(b)}–${hhmm(bucketEnd(i))}`
+      : a.group === 'day' ? dayFmt(b, { weekday: 'long', day: 'numeric', month: 'short' })
+      : a.group === 'week' ? t('weekOf', { d: dayFmt(b, { day: 'numeric', month: 'short' }) })
+      : dayFmt(b, { month: 'long', year: 'numeric' }) }
+  const bucketAxis = i => { const b = a.buckets[i]
+    return a.group === 'hour' ? (i && new Date(b).getHours() === 0 ? dayFmt(b, { day: 'numeric', month: 'short' }) : hhmm(b))
+      : a.group === 'month' ? dayFmt(b, { month: 'short' })
+      : a.buckets.length <= 7 ? dayFmt(b, { weekday: 'short', day: 'numeric' }) : dayFmt(b, { day: 'numeric', month: 'short' }) }
+
+  // 1. The plain-words summary, written by the server from the same numbers.
+  $('insights').innerHTML = (a.insights[lang] ?? a.insights.en).map(line => `<li>${esc(line)}</li>`).join('') ||
+    `<li>${t('noData')}</li>`
+
+  // 2. Headline numbers. Where "up" is plainly good or bad, the change says so in words, not just colour.
+  const count = (n, p) => p == null ? { text: t('vsNone') }
+    : { text: n > p ? t('vsMore', { n: n - p, prev: prevWord }) : n < p ? t('vsFewer', { n: p - n, prev: prevWord }) : t('vsSame', { prev: prevWord }) }
+  const points = (n, p, lowerIsBetter) => {
+    if (n == null || p == null) return { text: B ? '' : t('vsNone') }
+    const d = n - p; if (!d) return { text: t('vsSame', { prev: prevWord }) }
+    const good = lowerIsBetter ? d < 0 : d > 0
+    return { text: `${t(d > 0 ? 'vsPtsUp' : 'vsPtsDown', { n: Math.abs(d), prev: prevWord })} · ${t(good ? 'better' : 'worse')}`, tone: good ? 'good' : 'bad' }
+  }
+  const minutes = (n, p) => {
+    if (n == null || p == null) return { text: B ? '' : t('vsNone') }
+    const d = Math.round((n - p) * 10) / 10; if (!d) return { text: t('vsSame', { prev: prevWord }) }
+    return { text: `${t(d < 0 ? 'vsFaster' : 'vsSlower', { n: Math.abs(d), prev: prevWord })} · ${t(d < 0 ? 'better' : 'worse')}`, tone: d < 0 ? 'good' : 'bad' }
+  }
+  const kpi = (label, value, unit, delta, explain) => `<div class="kpi"><div class="l">${label}</div>
+    <div class="n">${value}${unit ? `<small>${unit}</small>` : ''}</div>
+    ${delta?.text ? `<div class="d ${delta.tone ?? ''}">${esc(delta.text)}</div>` : ''}<div class="e">${explain}</div></div>`
+  $('kpis').innerHTML =
+    kpi(t('kTotal'), T.alerts, '', count(T.alerts, B?.alerts), t('kTotalX')) +
+    kpi(t('kReal'), T.real, '', count(T.real, B?.real), t('kRealX')) +
+    kpi(t('kFalse'), T.falseAlarms, T.falseRate != null ? `(${T.falseRate}%)` : '', points(T.falseRate, B?.falseRate, true),
+        T.falseRate != null ? t('kFalseX', { p: T.falseRate }) : t('kFalseX0')) +
+    kpi(t('kOpen'), T.open, '', null, t('kOpenX')) +
+    kpi(t('kResp'), T.avgResponseMin ?? '—', T.avgResponseMin != null ? t('min') : '', minutes(T.avgResponseMin, B?.avgResponseMin), t('kRespX')) +
+    kpi(t('kPatrol'), T.patrol ?? '—', T.patrol != null ? '%' : '', points(T.patrol, B?.patrol, false), t('kPatrolX'))
+
+  // 3. Over time — one bar per hour / day / week / month; a bar opens exactly those alerts.
+  const every = Math.ceil(a.buckets.length / 8)
+  $('trendX').textContent = t('overTimeX', { unit: t({ hour: 'unitHour', day: 'unitDay', week: 'unitWeek', month: 'unitMonth' }[a.group]) })
+  $('trendChart').innerHTML = T.alerts
+    ? colChart(a.series, { tips: a.series.map((n, i) => `${bucketTip(i)}: ${nAlerts(n)}`), labels: a.buckets.map((_, i) => i % every ? '' : bucketAxis(i)), h: 190 })
+    : `<p class="nodata">${t('noData')}</p>`
+  $('trendChart').querySelectorAll('.col').forEach((el, i) => {
+    el.onclick = () => openAlerts({ from: Math.max(a.start, a.buckets[i]), to: a.buckets[i + 1] ?? (P.live ? null : a.end), label: bucketTip(i) })
+  })
+
+  // 4. One card per kind of alert.
+  $('typecards').innerHTML = a.byType.map(x => {
+    const sev = `var(--${x.severity})`
+    if (!x.alerts) return `<article class="tcard none" style="--sev:${sev}"><div class="tc-top"><h4>${esc(L(x.rule))}</h4></div>
+      <div class="tc-num">0<small>${t('noneThisPeriod')}</small></div></article>`
+    const facts = [
+      x.busiest && t('busiestAt', { cam: esc(x.busiest.name) }),
+      x.peakHour != null && x.alerts >= 3 && t('aroundHour', { h: hourLabel(x.peakHour) }),
+      x.avgResponseMin != null && t('checkedIn', { m: x.avgResponseMin }),
+    ].filter(Boolean)
+    const cmp = count(x.alerts, x.prev).text
+    return `<article class="tcard" style="--sev:${sev}" data-rule="${x.rule}" role="button" tabindex="0">
+      <div class="tc-top"><h4>${esc(L(x.rule))}</h4><span>${t('shareOf', { p: x.share })}</span></div>
+      <div class="tc-num">${x.alerts}<small>${esc(cmp)}</small></div>
+      ${colChart(x.series, { tips: x.series.map((n, i) => `${bucketTip(i)}: ${nAlerts(n)}`), mini: true })}
+      <div class="stack" aria-hidden="true">${x.real ? `<i class="s-real" style="flex:${x.real}"></i>` : ''}${x.open ? `<i class="s-open" style="flex:${x.open}"></i>` : ''}${x.falseAlarms ? `<i class="s-false" style="flex:${x.falseAlarms}"></i>` : ''}</div>
+      <div class="stackkey"><span><span class="k-real">⚠</span> <b>${x.real}</b> ${t('lblReal')}</span>
+        <span><span class="k-open">●</span> <b>${x.open}</b> ${t('lblOpen')}</span>
+        <span><span class="k-false">✓</span> <b>${x.falseAlarms}</b> ${t('lblFalse')}</span></div>
+      ${facts.length ? `<p class="tc-line">${facts.join(' · ')}</p>` : ''}
+    </article>`
+  }).join('')
+  $('typecards').querySelectorAll('.tcard[data-rule]').forEach(el => {
+    el.onclick = () => openAlerts({ rule: el.dataset.rule })
+    el.onkeydown = e => { if (e.key === 'Enter') el.onclick() }
+  })
+
+  // Why false alarms happen, and what was done — from the one-tap reasons.
+  for (const [outcome, box] of [['false_alarm', 'rFine'], ['action_taken', 'rDone']]) {
+    const R = a.reasons[outcome]
+    $(box + 'X').textContent = t('rX', { g: R.given, n: R.total })
+    $(box).innerHTML = R.items.length
+      ? hbars(R.items.map(x => ({ label: lang === 'hi' ? x.hi : x.en, value: x.count, key: x.code, tip: `${lang === 'hi' ? x.hi : x.en}: ${nAlerts(x.count)}` })))
+      : `<p class="nodata">${t('rNone')}</p>`
+    $(box).querySelectorAll('.hb[data-key]').forEach(el => { el.onclick = () => openAlerts({ reason: el.dataset.key }) })
+  }
+
+  // 5. When — hour of day, night hours shaded.
+  $('whenChart').innerHTML = T.alerts
+    ? colChart(a.byHour, { tips: a.byHour.map((n, h) => `${tipHour(h)}: ${nAlerts(n)}`),
+        labels: a.byHour.map((_, h) => (h % 3 ? '' : String(h).padStart(2, '0'))), night: h => h < 6 || h >= 18, h: 240 })
+    : `<p class="nodata">${t('noData')}</p>`
+
+  // 6. Where — each camera.
+  $('whereChart').innerHTML = T.alerts
+    ? hbars(a.byCamera.map(c => ({ label: c.name, value: c.alerts, key: c.id,
+        sub: c.checked ? t('falsePct', { p: c.falseRate }) : '', tip: `${c.name}: ${nAlerts(c.alerts)}` })))
+    : `<p class="nodata">${t('noData')}</p>`
+  $('whereChart').querySelectorAll('.hb[data-key]').forEach(el => { el.onclick = () => openAlerts({ cam: el.dataset.key }) })
+
+  // 7. How quickly.
+  const R = a.response
+  $('respChart').innerHTML = T.alerts
+    ? hbars([['r2', R.within2], ['r5', R.within5], ['r15', R.within15], ['rMore', R.over15], ['rNever', R.never, true]]
+        .map(([k, v, warn]) => ({ label: t(k), value: v, warn, tip: `${t(k)}: ${nAlerts(v)}` })))
+    : `<p class="nodata">${t('noData')}</p>`
+
+  // 8. Who.
+  $('guardTable').innerHTML = a.byGuard.length
+    ? `<table class="gtable"><thead><tr><th>${t('gName')}</th><th class="num">${t('gChecked')}</th><th class="num">${t('gAvg')}</th>
+        <th class="num">${t('gReal')}</th><th class="num">${t('gFalse')}</th></tr></thead><tbody>${a.byGuard.map(g => `<tr>
+        <td>${esc(g.name)}</td><td class="num"><b>${g.checked}</b></td><td class="num">${g.avgResponseMin ?? '—'} ${g.avgResponseMin != null ? t('min') : ''}</td>
+        <td class="num">${g.real}</td><td class="num">${g.falseAlarms}</td></tr>`).join('')}</tbody></table>`
+    : `<p class="nodata">${t('noGuards')}</p>`
+
+  // 9. The tuning tool — camera × hour. "show numbers" is the table view of this chart.
+  $('heatTable').innerHTML = `<tr><th></th>${Array.from({ length: 24 }, (_, h) => `<th>${h % 3 ? '' : String(h).padStart(2, '0')}</th>`).join('')}</tr>` +
+    a.heat.map(r => `<tr><th class="cam">${esc(r.name)}</th>${r.hours.map((n, h) =>
+      `<td style="background:${n ? `color-mix(in srgb, var(--medium) ${Math.round(15 + 85 * n / a.heat_max)}%, transparent)` : ''}"
+        data-tip="${esc(`${r.name}, ${tipHour(h)}: ${nAlerts(n)}`)}" data-cam="${esc(r.camera_id)}">${n || ''}</td>`).join('')}</tr>`).join('')
+  $('heatTable').querySelectorAll('td[data-cam]').forEach(td => { td.onclick = () => openAlerts({ cam: td.dataset.cam }) })
+}
+
+// One tooltip for every chart; the hit area is the whole column or row, bigger than the mark.
+const tip = $('tip')
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest?.('[data-tip]'); if (!el || !el.dataset.tip) return
+  tip.textContent = el.dataset.tip; tip.style.display = 'block'
+})
+document.addEventListener('mousemove', e => {
+  if (tip.style.display !== 'block') return
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + 'px'
+  tip.style.top = Math.min(e.clientY + 16, innerHeight - tip.offsetHeight - 8) + 'px'
+})
+document.addEventListener('mouseout', e => {
+  const from = e.target.closest?.('[data-tip]')
+  if (from && !from.contains(e.relatedTarget)) tip.style.display = 'none'
+})
+
+// ============================================================================
+// TV banner, sound and voice
+// ============================================================================
+const statusEl = $('status')
+function paintStatus() {
+  const n = pending().length
+  statusEl.classList.toggle('alarm', n > 0)
+  statusEl.firstChild.textContent = n ? t(n > 1 ? 'alertsNeedP' : 'alertsNeed', { n }) : t('allClear')
+  statusEl.querySelector('small').textContent =
+    new Date().toLocaleString(locale(), { weekday: 'long', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+}
+
+// Browsers refuse to play audio until the page has been clicked once. On a desk that is
+// the sound button; on the wall TV it is the full-screen "tap to start". The desktop
+// icon launches Chrome with --autoplay-policy=no-user-gesture-required, so neither is needed there.
+// Sound has three settings per screen: 'on' (chime + voice), 'chime' (no voice), 'off'. "Off for 30 minutes /
+// 1 hour" comes back on by itself, so a guard who silenced it for a meeting cannot forget it at night.
+// Screens that can mark alerts start with sound on; view-only screens (head office) start silent.
+let soundMode = { on: 'on', chime: 'chime', off: 'off', 1: 'on', 0: 'off' }[store('sound')] ?? (canAct ? 'on' : 'off')
+let soundBackAt = Number(store('soundBackAt')) || 0, ctx = null
+const soundOn = () => {
+  if (soundMode === 'off' && soundBackAt && Date.now() >= soundBackAt) setSound('on')       // the timed silence is over
+  return soundMode !== 'off'
+}
+const voiceOn = () => soundOn() && soundMode === 'on'
+const sndBtn = $('snd')
+const audioReady = () => ctx && ctx.state === 'running'
+const hm = ts => new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+function setSound(mode, minutes = 0) {
+  soundMode = mode; soundBackAt = mode === 'off' && minutes ? Date.now() + minutes * 60_000 : 0
+  try { localStorage.sound = mode; localStorage.soundBackAt = String(soundBackAt) } catch {}
+  if (mode !== 'on') speechSynthesis.cancel()
+  if (mode !== 'off') armAudio(); else paintSnd()
+}
+function armAudio() { try { ctx ??= new AudioContext(); ctx.resume() } catch {} document.body.classList.remove('needtap'); paintSnd() }
+function paintSnd() {
+  const on = soundOn()
+  sndBtn.textContent = !on ? (soundBackAt ? t('soundOffUntil', { time: hm(soundBackAt) }) : t('soundOff'))
+    : !audioReady() ? t('soundClick') : t(soundMode === 'chime' ? 'soundChime' : 'soundOn')
+  // Amber when it is not making sound on a screen where someone is meant to respond.
+  sndBtn.classList.toggle('blocked', on ? !audioReady() : canAct)
+  const back = hm(Date.now() + 30 * 60_000), back60 = hm(Date.now() + 60 * 60_000)
+  const item = (key, sub, checked, fn) => {
+    const b = document.createElement('button'); b.setAttribute('role', 'menuitemradio'); b.setAttribute('aria-checked', String(checked))
+    b.innerHTML = `${esc(t(key))}<small>${esc(sub)}</small>`
+    b.onclick = () => { fn(); b.closest('details').open = false }
+    return b
+  }
+  $('sndMenu').replaceChildren(
+    item('sndAll', t('sndAllX'), on && soundMode === 'on', () => setSound('on')),
+    item('sndChime', t('sndChimeX'), on && soundMode === 'chime', () => setSound('chime')),
+    document.createElement('hr'),
+    item('snd30', t('sndBackX', { time: back }), false, () => setSound('off', 30)),
+    item('snd60', t('sndBackX', { time: back60 }), false, () => setSound('off', 60)),
+    item('sndOff', t('sndOffX'), !on && !soundBackAt, () => setSound('off')))
+}
+sndBtn.closest('details').addEventListener('toggle', paintSnd)      // "comes back at" times are for now, not page load
+$('tap').onclick = armAudio
+document.addEventListener('pointerdown', () => { if (soundOn() && !audioReady()) armAudio() }, { capture: true })
+try { ctx = new AudioContext() } catch {}
+setInterval(paintSnd, 15_000)                                        // shows the switch back on without a click
+if (soundOn() && !audioReady() && TV) document.body.classList.add('needtap')
+paintSnd()
+
+const TONES = { critical: [[880, 0], [1175, 0.22], [1480, 0.44]], high: [[660, 0], [880, 0.28]], medium: [[520, 0]] }
+function chime(sev) {
+  if (!soundOn() || !audioReady() || !TONES[sev]) return
+  const t0 = ctx.currentTime
+  for (const [f, d] of TONES[sev]) {
+    const o = ctx.createOscillator(), g = ctx.createGain()
+    o.connect(g); g.connect(ctx.destination); o.frequency.value = f
+    g.gain.setValueAtTime(sev === 'medium' ? 0.12 : 0.3, t0 + d)
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + d + 0.35)
+    o.start(t0 + d); o.stop(t0 + d + 0.35)
+  }
+}
+const voiceFor = l => speechSynthesis.getVoices().find(v => v.lang.replace('_', '-').startsWith(l))
+function say(text, l) {
+  const u = new SpeechSynthesisUtterance(text); u.lang = l; u.rate = 0.95
+  const v = voiceFor(l); if (v) u.voice = v
+  speechSynthesis.speak(u)
+}
+function announce(a) {
+  if (!voiceOn() || !('speechSynthesis' in window)) return
+  const where = a.camera_name ?? a.camera_id
+  const loc = a.location && !/TBC/.test(a.location) ? `, ${a.location}` : ''
+  say(`${meta.labels[a.rule] ?? a.rule}. ${where}${loc}.`, 'en-IN')
+  if (meta.labels_hi?.[a.rule]) say(`${meta.labels_hi[a.rule]}. ${where}.`, 'hi-IN')
+}
+// Nobody acted for a minute? Say so again, and make those cards impossible to miss.
+function nag() {
+  const stale = pending().filter(a => (a.severity === 'critical' || a.severity === 'high') && Date.now() - a.ts > 60_000)
+  const ids = new Set(stale.map(a => a.id))
+  document.querySelectorAll('#attnFeed .card').forEach(el => el.classList.toggle('urgent', ids.has(Number(el.dataset.id))))
+  if (!stale.length || !canAct) return   // "still need checking" is for the people who can check
+  chime('critical')
+  if (voiceOn() && 'speechSynthesis' in window && !speechSynthesis.speaking) {
+    say(`${stale.length} alert${stale.length > 1 ? 's' : ''} still need checking.`, 'en-IN')
+    say(`${stale.length} सूचना की जाँच अभी बाकी है।`, 'hi-IN')
+  }
+}
+
+// ============================================================================
+// DOWNLOADS — one menu, the same on Alerts, Patrol and Analytics.
+// Excel and CSV come from the server and hold every matching row, not just what is on screen.
+// PDF is a real file, made on the guard PC. Print (the separate button) is for paper.
+// ============================================================================
+const exportQuery = {
+  alerts: () => {
+    const q = new URLSearchParams()
+    if (F.q) q.set('q', F.q)
+    if (F.cam) q.set('camera', F.cam)
+    if (F.status !== 'all') q.set('status', F.status)
+    if (F.rule) q.set('rule', F.rule)
+    if (F.reason) q.set('reason', F.reason)
+    const [from, to] = listRange(); if (from) q.set('from', from); if (to) q.set('to', to)
+    return q
+  },
+  patrol: () => new URLSearchParams({ day: ymd(patDay) }),
+  analytics: anQuery,
+}
+// Print = paper, straight away. Patrol and Analytics print the page with its charts; Alerts prints a table.
+document.querySelectorAll('[data-print]').forEach(b => {
+  b.onclick = () => b.dataset.print === 'alerts' ? open(`/export/alerts?${exportQuery.alerts()}&format=print`, '_blank') : print()
+})
+document.querySelectorAll('details.dl[data-what]').forEach(d => {
+  const what = d.dataset.what
+  d.querySelector('.dlmenu').append(...[['xlsx', 'Excel', 'dlExcelX'], ['csv', 'CSV', 'dlCsvX'], ['pdf', 'PDF', 'dlPdfX']].map(([fmt, name, sub]) => {
+    const a = document.createElement('a')
+    a.innerHTML = `${name}<small>${esc(t(sub))}</small>`
+    a.onclick = async e => {
+      setTimeout(() => { d.open = false })
+      const q = exportQuery[what](); q.set('format', fmt)
+      const url = `/export/${what}?${q}`                    // read now, so it matches the filters on screen
+      if (fmt !== 'pdf') { a.href = url; return }
+      // A PDF takes a few seconds to make, so fetch it and say so, instead of a click that seems to do nothing.
+      e.preventDefault()
+      const sum = d.querySelector('summary'), label = sum.querySelector('span')
+      if (sum.classList.contains('busy')) return
+      sum.classList.add('busy'); label.textContent = t('makingPdf')
+      try {
+        const r = await fetch(url)
+        if (r.status === 401) return toLogin()
+        if (!r.ok) throw new Error(String(r.status))
+        const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? `site-${what}.pdf`
+        const u = URL.createObjectURL(await r.blob())
+        Object.assign(document.createElement('a'), { href: u, download: name }).click()
+        setTimeout(() => URL.revokeObjectURL(u), 10_000)
+      } catch { notify(t('pdfFailed')) } finally { sum.classList.remove('busy'); label.textContent = t('download') }
+    }
+    return a
+  }))
+})
+document.addEventListener('click', e => document.querySelectorAll('details.dl[open]').forEach(d => { if (!d.contains(e.target)) d.open = false }))
+
+// ============================================================================
+// AI BOX SILENT — a big banner on every screen, and a spoken warning where someone can act.
+// ============================================================================
+let health = meta.health ?? { state: 'ok' }, lastSaid = 0
+const muteUntil = () => Number(store('bwMute', localStorage) ?? 0)
+function paintHealth(changed = false) {
+  const bad = health.state === 'unreachable', quiet = health.state === 'silent'
+  $('boxwarn').hidden = !(bad || quiet)
+  if (!bad && !quiet) { lastSaid = 0; return }
+  const m = Math.max(0, Math.round((Date.now() - health.since) / 60_000))
+  const dur = m >= 60 ? t('hrs', { h: Math.floor(m / 60), m: m % 60 }) : t('mins', { m })
+  const time = new Date(health.since).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })
+  $('boxwarn').classList.toggle('bad', bad)
+  $('bwTitle').textContent = t(bad ? 'bwBadTitle' : 'bwQuietTitle', { dur })
+  $('bwSub').textContent = t(bad ? 'bwBadSub' : 'bwQuietSub', { time })
+  const muted = muteUntil() > Date.now()
+  $('bwMute').hidden = !canAct
+  $('bwMute').textContent = t(muted ? 'bwMuted' : 'bwMute')
+  // Say it when it starts, then every 10 minutes until it is fixed (unless someone pressed "Quiet for 1 hour").
+  if (canAct && soundOn() && !muted && (changed || Date.now() - lastSaid > 10 * 60_000)) {
+    lastSaid = Date.now()
+    chime('critical')
+    if (voiceOn() && 'speechSynthesis' in window) { say(I18N.en[bad ? 'sayBad' : 'sayQuiet'], 'en-IN'); say(I18N.hi[bad ? 'sayBad' : 'sayQuiet'], 'hi-IN') }
+  }
+}
+$('bwMute').onclick = () => { try { localStorage.bwMute = String(Date.now() + 3_600_000) } catch {} speechSynthesis.cancel(); paintHealth() }
+paintHealth()
+setInterval(paintHealth, 30_000)
+
+// ============================================================================
+// Live updates from the server
+// ============================================================================
+const es = new EventSource('/api/stream')
+es.onopen = () => { $('conn').textContent = t('liveOk'); $('dot').classList.remove('off') }
+es.onerror = () => {
+  $('conn').textContent = t('reconnecting'); $('dot').classList.add('off')
+  fetch('/api/me').then(r => { if (r.status === 401) toLogin() }).catch(() => {})   // signed out, or just a restart?
+}
+es.addEventListener('health', e => { health = JSON.parse(e.data); paintHealth(true) })
+es.onmessage = e => {
+  const a = JSON.parse(e.data)
+  if (tab === 'patrol' && ['person_seen', 'patrol_missed', 'post_unmanned'].includes(a.rule)) loadPatrol()
+  if (tab === 'analytics' && a.severity !== 'info') { clearTimeout(anSoon); anSoon = setTimeout(loadAnalytics, 3000) }
+  // A change to an existing alert — checked on another screen, a reason, a note, its photo arrived.
+  if (a._update || attn.some(r => r.id === a.id) || listBase.some(r => r.id === a.id)) { delete a._update; applyRow(a); return }
+  listIncoming(a)
+  if (!RANK[a.severity] || a.ack_at) return
+  attn.unshift(a)
+  const f = $('attnFeed'); f.querySelector('.empty')?.remove(); f.prepend(card(a, true))
+  if (TV) while (f.children.length > TV_CARDS) f.lastChild.remove()
+  tally()
+  chime(a.severity)
+  // A fall or an intrusion is worth leaving whatever page you are on.
+  if (canAct && a.severity === 'critical' && tab !== 'live') { history.pushState(null, '', '#live'); go('live') }
+  autoFocus(a.camera_id)
+  if (a.severity === 'critical' || a.severity === 'high') announce(a)
+}
+setInterval(() => {
+  document.querySelectorAll('.card .meta[data-ts]').forEach(el => { el.textContent = ago(Number(el.dataset.ts)) })
+  paintStatus()
+}, 30_000)
+setInterval(nag, 60_000)
+
+// ---- start -----------------------------------------------------------------
+const setHdr = () => document.documentElement.style.setProperty('--hdr', $('hdr').offsetHeight + 'px')
+setHdr(); addEventListener('resize', setHdr)
+await loadAttn()
+go(location.hash.slice(1) || localStorage.tab || 'live')
+
+</script>
